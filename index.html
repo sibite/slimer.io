@@ -8,12 +8,17 @@
 		<link href="https://fonts.googleapis.com/css?family=Ubuntu:400,700&display=swap" rel="stylesheet">
 		<style>
 		body {
+			position: relative;
 			margin: 0;
 		}
-		#game  {
-			position: relative;
+		#view  {
+			position: absolute;
 			overflow: hidden;
 			touch-action: none;
+		}
+		#map  {
+			position: relative;
+			background: white url("mygrid.png") top left /auto repeat;
 		}
 		#player, .food {
 			position: absolute;
@@ -32,144 +37,148 @@
 			font-size: 30px;
 			color: white;
 			cursor: default;
-			text-shadow: 0px 2px black;
+			text-shadow: -1px -1px black, 1px -1px black, 1px 1px black, -1px 1px black;
 		}
 		</style>
 	</head>
 	<body>
-		<div id="game">
-			<div id="player"><span></span></div>
+		<div id="view">
+			<div id="map">
+				<div id="player"><span></span></div>
+			</div>
 		</div>
 
 		<script>
-			let pSize = 40;
-			let foodSize = 12;
-			let borderWidth = 5;
-			let pColor = Math.floor(Math.random() * 361);
 
-			let player = document.getElementById("player");
-			let score = player.firstChild;
-			let body = document.body;
-			let game = document.getElementById("game");
+			let game = {
+				foodSize: 12,
+				borderWidth: 5,
+				score: 0,
+				scoreEl: null,
+				map: document.getElementById("map"),
+				view: document.getElementById("view"),
+				mouseX: 0,
+				mouseY: 0,
+			};
+
+			let player = {
+				diameter: 40,
+				speed: 10,
+				color: Math.floor(Math.random() * 361),
+				el: document.getElementById("player"),
+				x: 0,
+				y: 0,
+			};
 
 			updateScreen = function()  {
-				game.style.width = window.innerWidth + "px";
-				game.style.height = window.innerHeight  + "px";
+				game.view.style.width = window.innerWidth + "px";
+				game.view.style.height = window.innerHeight  + "px";
+				game.map.style.width = window.innerWidth + "px";
+				game.map.style.height = window.innerHeight  + "px";
 			}
-			updateScreen();
-
-			let mouseY = game.clientHeight / 2;
-			let mouseX = game.clientWidth / 2;
-			let playerX = (game.clientWidth - pSize) / 2;
-			let playerY = (game.clientHeight - pSize) / 2;
-			let pSpeedM = 10;
-
-			player.style.backgroundColor = "hsl("+pColor+", 100%, 50%)";
-			player.style.borderWidth = borderWidth + "px";
-			player.style.borderColor = "hsl("+pColor+", 100%, 40%)";
-			player.style.left = playerX + "px";
-			player.style.top = playerY + "px";
 
 
 			updatePlayerSize = function(size)  {
-				pSize = size;
-				player.style.width = pSize + "px";
-				player.style.height = pSize + "px";
-				player.style.lineHeight = pSize + "px";
-				pSpeedM = Math.sqrt(pSize) / pSize * 30;
-				score.innerHTML = Math.floor(pSize*pSize / 100);
+				player.diameter = size;
+				player.el.style.width = player.diameter + "px";
+				player.el.style.height = player.diameter + "px";
+				player.el.style.lineHeight = player.diameter + "px";
+				player.speed = Math.sqrt(player.diameter) / player.diameter * 30;
+				game.scoreEl.innerHTML = game.score = Math.floor(Math.pow(player.diameter / 2, 2) * Math.PI / 100);
 			}
 
 
 			checkFood = function()  {
-				let foodsCol = document.getElementsByClassName("food");
+				let foodsCollection = document.getElementsByClassName("food");
 				let foods = Array();
-				for (i = 0; i < foodsCol.length; i++)	{
-					foods[i] = foodsCol[i];
+				for (i = 0; i < foodsCollection.length; i++)	{
+					foods[i] = foodsCollection[i];
 				}
 				foods = foods.filter(function(food) {
-					distanceX = playerX - food.offsetLeft + pSize / 2 - foodSize / 2;
-					distanceY = playerY - food.offsetTop + pSize / 2 - foodSize / 2;
+					let distanceX = player.x - food.offsetLeft + player.diameter / 2 - game.foodSize / 2;
+					let distanceY = player.y - food.offsetTop + player.diameter / 2 - game.foodSize / 2;
+					let distance = Math.sqrt(distanceX*distanceX + distanceY*distanceY);
 
-					return Math.sqrt(distanceX*distanceX + distanceY*distanceY) < pSize / 2 + borderWidth;
+					return distance < player.diameter / 2 + game.borderWidth;
 				});
 				foods.forEach(function(food) {
-					game.removeChild(food);
-					updatePlayerSize(Math.sqrt(Math.pow(pSize, 2) + Math.pow(foodSize, 2)));
+					updatePlayerSize(Math.sqrt(Math.pow(player.diameter, 2) + Math.pow(food.clientWidth, 2)));
+					game.map.removeChild(food);
 				});
 			}
 
 
 			addFood = function()  {
-				if (document.getElementsByClassName("food").length > (game.clientWidth * game.clientHeight) / (130*130)) return false;
+				if (document.getElementsByClassName("food").length > (game.map.clientWidth * game.map.clientHeight) / (130*130)) return false;
 
 				let fColor = Math.floor(Math.random() * 361);
-				let spawnX = Math.round(Math.random() * game.clientWidth) - foodSize / 2 - borderWidth;
-				let spawnY = Math.round(Math.random() * game.clientHeight) - foodSize / 2 - borderWidth;
+				let spawnX = Math.round(Math.random() * game.map.clientWidth) - game.foodSize / 2 - game.borderWidth;
+				let spawnY = Math.round(Math.random() * game.map.clientHeight) - game.foodSize / 2 - game.borderWidth;
 				let food = document.createElement("div");
 				food.classList.add("food");
-				food.style.borderWidth = borderWidth + "px";
+				food.style.borderWidth = game.borderWidth + "px";
 				food.style.backgroundColor = "hsl("+fColor+", 100%, 50%)";
 				food.style.borderColor = "hsl("+fColor+", 100%, 50%)";
-				food.style.width = foodSize + "px";
-				food.style.height = foodSize + "px";
+				food.style.width = game.foodSize + "px";
+				food.style.height = game.foodSize + "px";
 				food.style.left = spawnX + "px";
 				food.style.top = spawnY + "px";
-				game.appendChild(food);
+				game.map.appendChild(food);
 			}
 
+
 			clearOutsideFood = function() {
-				let foodsCol = document.getElementsByClassName("food");
+				let foodsCollection = document.getElementsByClassName("food");
 				let foods = Array();
-				for (let i = 0; i < foodsCol.length; i++)  {
-					foods[i] = foodsCol[i];
+				for (let i = 0; i < foodsCollection.length; i++)  {
+					foods[i] = foodsCollection[i];
 				}
 				foods = foods.filter(food =>
-					food.offsetLeft > game.clientWidth - foodSize / 2 - borderWidth ||
-					food.offsetTop > game.clientHeight - foodSize / 2 - borderWidth);
+					food.offsetLeft > game.map.clientWidth - game.foodSize / 2 - game.borderWidth ||
+					food.offsetTop > game.map.clientHeight - game.foodSize / 2 - game.borderWidth);
 
 				foods.forEach(function(food) {
-					game.removeChild(food);
+					game.map.removeChild(food);
 				});
 			};
 
+
 			updatePos = function() {
-				//let playerBou
-				let offsetX = mouseX - playerX - pSize / 2;
-				let offsetY = mouseY - playerY - pSize / 2;
+				let playerRect = player.el.getBoundingClientRect();
+				let offsetX = game.mouseX - playerRect.left - playerRect.width / 2;
+				let offsetY = game.mouseY - playerRect.top - playerRect.width / 2;
 				let preDistance = Math.sqrt(offsetX*offsetX + offsetY*offsetY);
-				let distance = preDistance < 30 ? 30 : preDistance;
+				let distance = preDistance < 100 ? 100 : preDistance;
 
 				if (preDistance > 1)	{
-					let speedX = pSpeedM * offsetX / distance;
-					let speedY = pSpeedM * offsetY / distance;
-					console.log("updatePos");
+					let speedX = player.speed * offsetX / distance;
+					let speedY = player.speed * offsetY / distance;
 
-					playerX += speedX;
-					playerY += speedY;
+					player.x += speedX;
+					player.y += speedY;
 				}
 
-				player.style.left = playerX + "px";
-				player.style.top = playerY + "px";
+				player.el.style.left = player.x + "px";
+				player.el.style.top = player.y + "px";
 
 				checkFood();
 			}
 
 
 			document.addEventListener("mousemove", function(event) {
-				mouseX = event.clientX;
-				mouseY = event.clientY;
+				game.mouseX = event.clientX;
+				game.mouseY = event.clientY;
 			});
 
 			document.addEventListener("touchmove", function(event) {
 				event.preventDefault();
-				mouseX = event.touches[0].clientX;
-				mouseY = event.touches[0].clientY;
+				game.mouseX = event.touches[0].clientX;
+				game.mouseY = event.touches[0].clientY;
 			});
 			document.addEventListener("touchstart", function(event) {
 				event.preventDefault();
-				mouseX = event.clientX;
-				mouseY = event.clientY;
+				game.mouseX = event.clientX;
+				game.mouseY = event.clientY;
 			});
 			document.addEventListener("touchend", function(event) {
 				event.preventDefault();
@@ -180,7 +189,28 @@
 			});
 
 
-			updatePlayerSize(pSize);
+			//GAME START POINT INITIALIZATION
+
+
+			updateScreen();
+
+			player.diamPlusBorder = player.diameter + game.borderWidth * 2;
+			game.scoreEl = player.el.firstChild;
+
+			game.mouseX = game.view.clientWidth / 2;
+			game.mouseY = game.view.clientHeight / 2;
+
+			player.x = (game.map.clientWidth - player.diamPlusBorder) / 2;
+			player.y = (game.map.clientHeight - player.diamPlusBorder) / 2;
+
+			player.el.style.backgroundColor = "hsl("+player.color+", 100%, 50%)";
+			player.el.style.borderWidth = game.borderWidth + "px";
+			player.el.style.borderColor = "hsl("+player.color+", 100%, 40%)";
+			player.el.style.left = player.x + "px";
+			player.el.style.top = player.y + "px";
+
+			updatePlayerSize(player.diameter);
+			
 			setInterval(updatePos, 15);
 			setInterval(addFood, 400);
 		</script>
