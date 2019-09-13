@@ -53,6 +53,7 @@
 			let game = {
 				foodSize: 12,
 				borderWidth: 5,
+				foodsPer100sqrpx: 0.7,
 				score: 0,
 				scoreEl: null,
 				map: document.getElementById("map"),
@@ -109,7 +110,7 @@
 
 
 			addFood = function()  {
-				if (document.getElementsByClassName("food").length > (game.map.clientWidth * game.map.clientHeight) / (130*130)) return false;
+				if (document.getElementsByClassName("food").length > (game.map.clientWidth * game.map.clientHeight) / (100*100) * game.foodsPer100sqrpx) return false;
 
 				let fColor = Math.floor(Math.random() * 361);
 				let spawnX = Math.round(Math.random() * game.map.clientWidth) - game.foodSize / 2 - game.borderWidth;
@@ -210,7 +211,7 @@
 			player.el.style.top = player.y + "px";
 
 			updatePlayerSize(player.diameter);
-			
+
 			setInterval(updatePos, 15);
 			setInterval(addFood, 400);
 		</script>
