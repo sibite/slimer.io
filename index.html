@@ -54,10 +54,14 @@
 				foodSize: 12,
 				borderWidth: 5,
 				foodsPer100sqrpx: 0.7,
+				spawnFoodPerSec: 2.5,
+				spawnPreFood: true,
 				score: 0,
 				scoreEl: null,
 				map: document.getElementById("map"),
 				view: document.getElementById("view"),
+				mapWidth: 3000,
+				mapHeight: 3000,
 				mouseX: 0,
 				mouseY: 0,
 			};
@@ -74,17 +78,16 @@
 			updateScreen = function()  {
 				game.view.style.width = window.innerWidth + "px";
 				game.view.style.height = window.innerHeight  + "px";
-				game.map.style.width = window.innerWidth + "px";
-				game.map.style.height = window.innerHeight  + "px";
 			}
 
 
-			updatePlayerSize = function(size)  {
-				player.diameter = size;
+			updatePlayerSize = function(diameter)  {
+				player.diameter = diameter;
+				player.diamPlusBorder = diameter + game.borderWidth * 2;
 				player.el.style.width = player.diameter + "px";
 				player.el.style.height = player.diameter + "px";
 				player.el.style.lineHeight = player.diameter + "px";
-				player.speed = Math.sqrt(player.diameter) / player.diameter * 30;
+				player.speed = Math.pow(player.diameter, 10/17) / player.diameter * 25;
 				game.scoreEl.innerHTML = game.score = Math.floor(Math.pow(player.diameter / 2, 2) * Math.PI / 100);
 			}
 
@@ -145,13 +148,16 @@
 
 
 			updatePos = function() {
+
+				//PLAYER MOVE
+
 				let playerRect = player.el.getBoundingClientRect();
 				let offsetX = game.mouseX - playerRect.left - playerRect.width / 2;
 				let offsetY = game.mouseY - playerRect.top - playerRect.width / 2;
 				let preDistance = Math.sqrt(offsetX*offsetX + offsetY*offsetY);
 				let distance = preDistance < 100 ? 100 : preDistance;
 
-				if (preDistance > 1)	{
+				if (preDistance > 10)	{
 					let speedX = player.speed * offsetX / distance;
 					let speedY = player.speed * offsetY / distance;
 
@@ -159,10 +165,32 @@
 					player.y += speedY;
 				}
 
+				//PREVENTING FROM MOVING OUTSIDE THE BORDERS
+
+				let playerRealX = player.x + player.diamPlusBorder / 2;
+				let playerRealY = player.y + player.diamPlusBorder / 2;
+
+				player.x =
+				playerRealX < 0 ? 0 - player.diamPlusBorder / 2 :
+				playerRealX > game.mapWidth ? game.mapWidth - player.diamPlusBorder / 2 :
+				player.x;
+
+				player.y =
+				playerRealY < 0 ? 0 - player.diamPlusBorder / 2 :
+				playerRealY > game.mapHeight ? game.mapHeight - player.diamPlusBorder / 2 :
+				player.y;
+
+
+
 				player.el.style.left = player.x + "px";
 				player.el.style.top = player.y + "px";
 
 				checkFood();
+
+				//VIEW MOVE
+
+				game.map.style.left = view.offsetWidth / 2 - player.x - player.diamPlusBorder / 2 + "px";
+				game.map.style.top = view.offsetHeight / 2 - player.y - player.diamPlusBorder / 2 + "px";
 			}
 
 
@@ -201,6 +229,9 @@
 			game.mouseX = game.view.clientWidth / 2;
 			game.mouseY = game.view.clientHeight / 2;
 
+			game.map.style.width = game.mapWidth + "px";
+			game.map.style.height = game.mapHeight + "px";
+
 			player.x = (game.map.clientWidth - player.diamPlusBorder) / 2;
 			player.y = (game.map.clientHeight - player.diamPlusBorder) / 2;
 
@@ -212,8 +243,14 @@
 
 			updatePlayerSize(player.diameter);
 
+			if (game.spawnPreFood == true)	{
+				for (let i = 0; i < (game.mapWidth * game.mapHeight) / (100*100) * game.foodsPer100sqrpx / 2; i++)	{
+					addFood();
+				}
+			}
+
 			setInterval(updatePos, 15);
-			setInterval(addFood, 400);
+			setInterval(addFood, 1000 / game.spawnFoodPerSec);
 		</script>
 	</body>
 </html>
