@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+		<meta name="theme-color" content="#FFFFFF">
+		<title>Slimer.io</title>
+		<link href="https://fonts.googleapis.com/css?family=Ubuntu:400,700&display=swap" rel="stylesheet">
+		<style>
+		body {
+			margin: 0;
+		}
+		#game  {
+			position: relative;
+			overflow: hidden;
+			touch-action: none;
+		}
+		#player, .food {
+			position: absolute;
+			border-radius: 100%;
+			background: black;
+			border-style: solid;
+			transition: width 300ms, height 300ms;
+		}
+		#player {
+			z-index: 100;
+			text-align: center;
+		}
+		#player > span  {
+			font-family: 'Ubuntu', sans-serif;
+			font-weight: bold;
+			font-size: 30px;
+			color: white;
+			cursor: default;
+			text-shadow: 0px 2px black;
+		}
+		</style>
+	</head>
+	<body>
+		<div id="game">
+			<div id="player"><span></span></div>
+		</div>
+
+		<script>
+			let pSize = 40;
+			let foodSize = 12;
+			let borderWidth = 5;
+			let pColor = Math.floor(Math.random() * 361);
+
+			let player = document.getElementById("player");
+			let score = player.firstChild;
+			let body = document.body;
+			let game = document.getElementById("game");
+
+			updateScreen = function()  {
+				game.style.width = window.innerWidth + "px";
+				game.style.height = window.innerHeight  + "px";
+			}
+			updateScreen();
+
+			let mouseY = game.clientHeight / 2;
+			let mouseX = game.clientWidth / 2;
+			let playerX = (game.clientWidth - pSize) / 2;
+			let playerY = (game.clientHeight - pSize) / 2;
+			let pSpeedM = 10;
+
+			player.style.backgroundColor = "hsl("+pColor+", 100%, 50%)";
+			player.style.borderWidth = borderWidth + "px";
+			player.style.borderColor = "hsl("+pColor+", 100%, 40%)";
+			player.style.left = playerX + "px";
+			player.style.top = playerY + "px";
+
+
+			updatePlayerSize = function(size)  {
+				pSize = size;
+				player.style.width = pSize + "px";
+				player.style.height = pSize + "px";
+				player.style.lineHeight = pSize + "px";
+				pSpeedM = Math.sqrt(pSize) / pSize * 30;
+				score.innerHTML = Math.floor(pSize*pSize / 100);
+			}
+
+
+			checkFood = function()  {
+				let foodsCol = document.getElementsByClassName("food");
+				let foods = Array();
+				for (i = 0; i < foodsCol.length; i++)	{
+					foods[i] = foodsCol[i];
+				}
+				foods = foods.filter(function(food) {
+					distanceX = playerX - food.offsetLeft + pSize / 2 - foodSize / 2;
+					distanceY = playerY - food.offsetTop + pSize / 2 - foodSize / 2;
+
+					return Math.sqrt(distanceX*distanceX + distanceY*distanceY) < pSize / 2 + borderWidth;
+				});
+				foods.forEach(function(food) {
+					game.removeChild(food);
+					updatePlayerSize(Math.sqrt(Math.pow(pSize, 2) + Math.pow(foodSize, 2)));
+				});
+			}
+
+
+			addFood = function()  {
+				if (document.getElementsByClassName("food").length > (game.clientWidth * game.clientHeight) / (130*130)) return false;
+
+				let fColor = Math.floor(Math.random() * 361);
+				let spawnX = Math.round(Math.random() * game.clientWidth) - foodSize / 2 - borderWidth;
+				let spawnY = Math.round(Math.random() * game.clientHeight) - foodSize / 2 - borderWidth;
+				let food = document.createElement("div");
+				food.classList.add("food");
+				food.style.borderWidth = borderWidth + "px";
+				food.style.backgroundColor = "hsl("+fColor+", 100%, 50%)";
+				food.style.borderColor = "hsl("+fColor+", 100%, 50%)";
+				food.style.width = foodSize + "px";
+				food.style.height = foodSize + "px";
+				food.style.left = spawnX + "px";
+				food.style.top = spawnY + "px";
+				game.appendChild(food);
+			}
+
+			clearOutsideFood = function() {
+				let foodsCol = document.getElementsByClassName("food");
+				let foods = Array();
+				for (let i = 0; i < foodsCol.length; i++)  {
+					foods[i] = foodsCol[i];
+				}
+				foods = foods.filter(food =>
+					food.offsetLeft > game.clientWidth - foodSize / 2 - borderWidth ||
+					food.offsetTop > game.clientHeight - foodSize / 2 - borderWidth);
+
+				foods.forEach(function(food) {
+					game.removeChild(food);
+				});
+			};
+
+			updatePos = function() {
+				//let playerBou
+				let offsetX = mouseX - playerX - pSize / 2;
+				let offsetY = mouseY - playerY - pSize / 2;
+				let preDistance = Math.sqrt(offsetX*offsetX + offsetY*offsetY);
+				let distance = preDistance < 30 ? 30 : preDistance;
+
+				if (preDistance > 1)	{
+					let speedX = pSpeedM * offsetX / distance;
+					let speedY = pSpeedM * offsetY / distance;
+					console.log("updatePos");
+
+					playerX += speedX;
+					playerY += speedY;
+				}
+
+				player.style.left = playerX + "px";
+				player.style.top = playerY + "px";
+
+				checkFood();
+			}
+
+
+			document.addEventListener("mousemove", function(event) {
+				mouseX = event.clientX;
+				mouseY = event.clientY;
+			});
+
+			document.addEventListener("touchmove", function(event) {
+				event.preventDefault();
+				mouseX = event.touches[0].clientX;
+				mouseY = event.touches[0].clientY;
+			});
+			document.addEventListener("touchstart", function(event) {
+				event.preventDefault();
+				mouseX = event.clientX;
+				mouseY = event.clientY;
+			});
+			document.addEventListener("touchend", function(event) {
+				event.preventDefault();
+			});
+			window.addEventListener("resize", function()  {
+				clearOutsideFood();
+				updateScreen();
+			});
+
+
+			updatePlayerSize(pSize);
+			setInterval(updatePos, 15);
+			setInterval(addFood, 400);
+		</script>
+	</body>
+</html>
