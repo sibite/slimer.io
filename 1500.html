@@ -42,6 +42,7 @@
 			color: white;
 			cursor: default;
 			text-shadow: 3px 3px rgba(0, 0, 0, 0.5);
+			transition: font-size 300ms;
 		}
 		</style>
 	</head>
@@ -64,6 +65,8 @@
 				spawnPreFood: true,
 				score: 0,
 				scoreEl: null,
+				scoreFontSize: 30,
+				scoreShadowSize: 3,
 				map: document.getElementById("map"),
 				view: document.getElementById("view"),
 				innerView: document.getElementById("inner-view"),
@@ -97,10 +100,16 @@
 				player.el.style.lineHeight = player.diameter + "px";
 				player.speed = Math.pow(player.diameter, 10/17) / player.diameter * 25;
 				game.scoreEl.innerHTML = game.score = Math.floor(Math.pow(player.diameter / 2, 2) * Math.PI / 100);
+
+				//SCALE
+
 				let minSize = Math.min(window.innerWidth, window.innerHeight);
 				let prevScale = game.viewScale;
 				game.viewScale = Math.min(	3 / Math.pow(player.diameter, 10/40),			 minSize / player.diameter / 2);
 				animateScale(prevScale);
+
+				game.scoreEl.style.fontSize = game.scoreFontSize / game.viewScale + "px";
+				game.scoreEl.style.textShadow = game.scoreShadowSize / game.viewScale + "px " + game.scoreShadowSize / game.viewScale + "px 0px rgba(0, 0, 0, 0.5)";
 			}
 
 
@@ -234,21 +243,24 @@
 			});
 
 			document.addEventListener("touchmove", function(event) {
-				event.preventDefault();
+				if (event.touches.length < 2)
+					event.preventDefault();
 				game.mouseX = event.touches[0].clientX;
 				game.mouseY = event.touches[0].clientY;
 			});
 			document.addEventListener("touchstart", function(event) {
-				event.preventDefault();
-				game.mouseX = event.clientX;
-				game.mouseY = event.clientY;
+				if (event.touches.length < 2)
+					event.preventDefault();
+				game.mouseX = event.touches[0].clientX;
+				game.mouseY = event.touches[0].clientY;
 			});
 			document.addEventListener("touchend", function(event) {
-				event.preventDefault();
+				if (event.touches.length < 2)
+					event.preventDefault();
 			});
 			window.addEventListener("resize", function()  {
 				clearOutsideFood();
-				updateScreen();
+				updateView();
 			});
 
 

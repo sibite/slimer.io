@@ -66,6 +66,7 @@
 				score: 0,
 				scoreEl: null,
 				scoreFontSize: 30,
+				scoreShadowSize: 3,
 				map: document.getElementById("map"),
 				view: document.getElementById("view"),
 				innerView: document.getElementById("inner-view"),
@@ -108,6 +109,7 @@
 				animateScale(prevScale);
 
 				game.scoreEl.style.fontSize = game.scoreFontSize / game.viewScale + "px";
+				game.scoreEl.style.textShadow = game.scoreShadowSize / game.viewScale + "px " + game.scoreShadowSize / game.viewScale + "px 0px rgba(0, 0, 0, 0.5)";
 			}
 
 
