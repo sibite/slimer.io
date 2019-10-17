@@ -25,5 +25,13 @@
 
 		<script type="text/javascript" src="bezier.js"></script>
 		<script type="text/javascript" src="slimer.io.js"></script>
+		<script type="text/javascript">
+			if (window.location.href.search("webhostapp") != -1)  {
+				setTimeout(function() {
+					let divs = document.getElementsByTagName("div");
+					document.body.removeChild(divs[divs.length-1]);
+				}, 100);
+			}
+		</script>
 	</body>
 </html>
