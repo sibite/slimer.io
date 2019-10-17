@@ -3,6 +3,34 @@
       }
 
 
+      //ANIMATIONS
+
+      let Animated = function(value)  {
+        this.value = value;
+        this.animCount = 0;
+      }
+
+      let ease = new BezierCurve(30, 3, [0, 0], [0.5, 0], [0.5, 1], [1, 1]);
+
+      Animated.prototype.animate = function(valueChange, time)  {
+        let i = 1;
+        let maxI = Math.round(time / (1000 / game.frameRate));
+        this.animCount += 1;
+        let frame = function()  {
+          if (maxI > 1)  {
+            this.value += valueChange * (    ease.getYofX(i / (maxI-1)) - ease.getYofX((i-1) / (maxI-1))   );
+          }  else  {
+            this.value += valueChange;
+          }
+          i++
+          if (i < maxI)  {
+            setTimeout(frame, 1000 / game.frameRate);
+          }
+        }.bind(this)
+        frame();
+      }
+
+
 			let Slime = function(diameter, color, borderColor, x, y)  {
 				this.diameter =	diameter;
         this.score = Math.floor(Math.pow(diameter/2, 2) * Math.PI / 100);
@@ -14,8 +42,10 @@
         this.directionX = 0;
         this.directionY = 0;
         this.lastPosUpdate = Date.now();
+        this.animatedDiameter = new Animated(diameter);
 
         this.updateDiameter = function(diameter)  {
+          this.animatedDiameter.animate(diameter - this.diameter, 400);
           this.diameter = diameter;
           this.score = Math.floor(Math.pow(diameter/2, 2) * Math.PI / 100);
           this.speed = Math.pow(this.diameter, 10/17) / this.diameter * 20;
@@ -58,7 +88,7 @@
         this.renderGrid = function()  {
           let realLT = this.game.convertCoords(0, 0);
           let realRB = this.game.convertCoords(this.game.mapWidth, this.game.mapHeight);
-          let strokeWidth = this.game.viewScale;
+          let strokeWidth = this.game.viewScaleAnimated.value;
           let strokeColor = "rgba(127, 127, 127, 0.15)";
 
           for(x = 25; x < this.game.mapWidth; x += 50)  {
@@ -85,8 +115,8 @@
 
         this.drawSlime = function(diameter, color, borderColor, x, y)  {
           let slime = new Path2D();
-          slime.arc(x, y, diameter/2 * this.game.viewScale, 0, 2*Math.PI);
-          this.ctx.lineWidth = this.game.borderWidth*2 * this.game.viewScale;
+          slime.arc(x, y, diameter/2 * this.game.viewScaleAnimated.value, 0, 2*Math.PI);
+          this.ctx.lineWidth = this.game.borderWidth*2 * this.game.viewScaleAnimated.value;
           this.ctx.strokeStyle = borderColor;
           this.ctx.fillStyle = color;
           this.ctx.stroke(slime);
@@ -105,7 +135,7 @@
           this.ctx.strokeText(score, rPCoords[0], rPCoords[1]);
           this.ctx.fillText(score, rPCoords[0], rPCoords[1]);
         };
-      };
+      }
 
 
 			let Game = function()  {
@@ -121,6 +151,7 @@
 				this.mapWidth = 3000;
 				this.mapHeight = 3000;
         this.viewScale = 1;
+        this.viewScaleAnimated = new Animated(this.viewScale);
         this.scoreFontSize = 24;
 				this.scoreOutlineSize = 2;
         this.camX = this.mapWidth / 2;
@@ -135,10 +166,10 @@
         this.foods = [];
 
         this.convertCoords = function(x, y)  {
-          let camLeft = this.camX - this.canvas.width / 2 / this.viewScale;
-          let camTop = this.camY - this.canvas.height / 2 / this.viewScale;
-          let canvasX = (x - camLeft) * this.viewScale;
-          let canvasY = (y - camTop) * this.viewScale;
+          let camLeft = this.camX - this.canvas.width / 2 / this.viewScaleAnimated.value;
+          let camTop = this.camY - this.canvas.height / 2 / this.viewScaleAnimated.value;
+          let canvasX = (x - camLeft) * this.viewScaleAnimated.value;
+          let canvasY = (y - camTop) * this.viewScaleAnimated.value;
           return [canvasX, canvasY];
         };
 
@@ -153,12 +184,15 @@
 
           this.foods.push(new Food(this.foodDiameter - this.borderWidth*2, color, this.borderWidth, x, y, 15*15));
         }
-			};
+			}
 
 
 
       let game = new Game();
 
+
+
+      //RENDER
 
 
       Game.prototype.render = function()  {
@@ -230,15 +264,15 @@
           playerXmove = (mouseXoffset / distance) * this.player.speed * (now - this.player.lastPosUpdate) / 15;
           playerYmove = (mouseYoffset / distance) * this.player.speed * (now - this.player.lastPosUpdate) / 15;
 
-          if (Math.abs(playerXmove) < Math.abs(mouseXoffset / this.viewScale))  {
+          if (Math.abs(playerXmove) < Math.abs(mouseXoffset / this.viewScaleAnimated.value))  {
             this.player.x += playerXmove;
           }  else  {
-            this.player.x += mouseXoffset / this.viewScale;
+            this.player.x += mouseXoffset / this.viewScaleAnimated.value;
           }
-          if (Math.abs(playerYmove) < Math.abs(mouseYoffset / this.viewScale))  {
+          if (Math.abs(playerYmove) < Math.abs(mouseYoffset / this.viewScaleAnimated.value))  {
             this.player.y += playerYmove;
           }  else  {
-            this.player.y += mouseYoffset / this.viewScale;
+            this.player.y += mouseYoffset / this.viewScaleAnimated.value;
           }
         }
 
@@ -254,7 +288,7 @@
         {
 
         let canvasCoords = this.convertCoords(this.player.x, this.player.y);
-        this.canvas.drawSlime(this.player.diameter, this.player.color, this.player.borderColor, canvasCoords[0], canvasCoords[1]);
+        this.canvas.drawSlime(this.player.animatedDiameter.value, this.player.color, this.player.borderColor, canvasCoords[0], canvasCoords[1]);
         this.canvas.drawPlayerScore(this.player.score);
 
         }
@@ -262,7 +296,9 @@
         {
 
         let minSize = Math.min(this.canvas.width, this.canvas.height);
-        this.viewScale = Math.min(  3 / Math.pow(this.player.diameter, 10/40),			minSize / this.player.diameter / 2  );
+        let newViewScale = Math.min(  3 / Math.pow(this.player.diameter, 10/40),			minSize / this.player.diameter / 2  );
+        this.viewScaleAnimated.animate(newViewScale - this.viewScale, 400);
+        this.viewScale = newViewScale;
 
         }
 
