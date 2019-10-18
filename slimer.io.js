@@ -101,7 +101,7 @@ let Canvas = function(game) {
       this.ctx.strokeStyle = strokeColor;
       this.ctx.stroke();
     }
-    for(y = 25; y < this.game.mapWidth; y += 50)  {
+    for(y = 25; y < this.game.mapHeight; y += 50)  {
       let realY = this.game.convertCoords(0, y)[1];
       this.ctx.beginPath();
       this.ctx.moveTo(realLT[0], realY);
@@ -183,6 +183,12 @@ let Game = function()  {
     let color = "hsl("+randNum(0, 360)+", 100%, 50%)";
 
     this.foods.push(new Food(this.foodDiameter - this.borderWidth*2, color, this.borderWidth, x, y, 15*15));
+  }
+
+  this.clearOutsideFood = function()  {
+    this.foods = this.foods.filter(food =>
+      (food.x <= this.mapWidth && food.x >= 0) && (food.y <= this.mapHeight && food.y >= 0)
+    );
   }
 }
 
