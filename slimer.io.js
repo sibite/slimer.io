@@ -10,10 +10,11 @@ let Animated = function(value)  {
   this.animCount = 0;
 }
 
+let linear = new BezierCurve(2, 1, [0, 0], [1, 1]);
 let ease = new BezierCurve(30, 3, [0, 0], [0.5, 0], [0.5, 1], [1, 1]);
 let easeOut = new BezierCurve(30, 3, [0, 0], [0, 0], [0.5, 1], [1, 1]);
 
-Animated.prototype.animate = function(valueChange, time, timingFunction = ease)  {
+Animated.prototype.animate = function(valueChange, time, timingFunction = ease, delay = 0)  {
   let i = 1;
   let maxI = Math.round(time / (1000 / game.frameRate));
   this.animCount += 1;
@@ -28,7 +29,10 @@ Animated.prototype.animate = function(valueChange, time, timingFunction = ease) 
       setTimeout(frame, 1000 / game.frameRate);
     }
   }.bind(this)
-  frame();
+  if (delay <= 0)
+    frame();
+  else
+    setTimeout(frame, delay);
 }
 
 
@@ -152,12 +156,23 @@ let Canvas = function(game) {
 
   this.drawSlime = function(diameter, color, borderColor, x, y)  {
     let slime = new Path2D();
-    slime.arc(x, y, diameter/2 * this.game.viewScaleAnimated.value, 0, 2*Math.PI);
-    this.ctx.lineWidth = this.game.borderWidth*2 * this.game.viewScaleAnimated.value;
-    this.ctx.strokeStyle = borderColor;
-    this.ctx.fillStyle = color;
-    this.ctx.stroke(slime);
-    this.ctx.fill(slime);
+    if (diameter > this.game.borderWidth)  {
+      slime.arc(x, y, diameter/2 * this.game.viewScaleAnimated.value, 0, 2*Math.PI);
+      this.ctx.lineWidth = this.game.borderWidth*2 * this.game.viewScaleAnimated.value;
+      this.ctx.strokeStyle = borderColor;
+      this.ctx.fillStyle = color;
+      this.ctx.stroke(slime);
+      this.ctx.fill(slime);
+    }
+    else  {
+      let border = new Path2D();
+      slime.arc(x, y, diameter/2 * this.game.viewScaleAnimated.value, 0, 2*Math.PI);
+      border.arc(x, y, (diameter/2 + this.game.borderWidth) * this.game.viewScaleAnimated.value, 0, 2*Math.PI);
+      this.ctx.fillStyle = borderColor;
+      this.ctx.fill(border);
+      this.ctx.fillStyle = color;
+      this.ctx.fill(slime);
+    }
   };
 
   this.drawPlayerScore = function(score)  {
@@ -188,7 +203,7 @@ let Game = function()  {
   this.splitSpeed = 12;
   this.mergeTime = 25;
   this.mergeTimeGrow = 0.08;
-  this.partsRepulsingSpeed = 20;
+  this.partsRepulsingSpeed = 15;
   this.noFoodSpawningTime = 0;
   this.borderWidth = 7;
 	this.foodDiameter = 22;
@@ -204,6 +219,8 @@ let Game = function()  {
 	this.scoreOutlineSize = 2;
   this.camX = this.mapWidth / 2;
   this.camY = this.mapHeight / 2;
+  this.camXanimated = new Animated(this.camX);
+  this.camYanimated = new Animated(this.camY);
   this.foods = [];
   let playerColor = randNum(0, 360);
   this.player = new Slime(
@@ -214,13 +231,13 @@ let Game = function()  {
                 this.mapHeight / 2);
 
   this.convertCoords = function(x, y)  {
-    let camLeft = this.camX - this.canvas.width / 2 / this.viewScaleAnimated.value;
-    let camTop = this.camY - this.canvas.height / 2 / this.viewScaleAnimated.value;
+    let camLeft = this.camXanimated.value - this.canvas.width / 2 / this.viewScaleAnimated.value;
+    let camTop = this.camYanimated.value - this.canvas.height / 2 / this.viewScaleAnimated.value;
     let canvasX = (x - camLeft) * this.viewScaleAnimated.value;
     let canvasY = (y - camTop) * this.viewScaleAnimated.value;
     return [canvasX, canvasY];
   };
-  let mouseC = this.convertCoords(this.mapWidth / 2 + 0.0001, this.mapHeight / 2 + 0.0001);
+  let mouseC = this.convertCoords(this.mapWidth / 2, this.mapHeight / 2);
 	this.mouseX = mouseC[0];
 	this.mouseY = mouseC[1];
 
@@ -245,7 +262,17 @@ let game = new Game();
 
 
 
-//RENDER
+//INITIALIZE AND RENDER
+
+
+Game.prototype.initialize = function()  {
+  for(let i = 0; i < this.mapWidth*this.mapHeight/10000 * this.foodsPer100sqrpx * this.preFoodPart; i++)  {
+    this.spawnFood();
+  }
+  this.canvas.resize();
+  this.latestRenderTime = Date.now();
+  this.render();
+}
 
 
 Game.prototype.render = function()  {
@@ -363,23 +390,27 @@ Game.prototype.render = function()  {
 
     //PARTS MERGING
 
+    let mergeDone = false;
     this.player.mergeTimeLeft -= timeDifference / 1000;
-
     let mergingParts = this.player.parts.filter(part => this.player.mergeTimeLeft + part.diameter * this.mergeTimeGrow <= 0)
                                         .sort((a, b) => b.diameter - a.diameter);
-    mergingParts.forEach(function(part, index) {
-      let otherMergingParts = mergingParts.filter(otherPart => part != otherPart && otherPart.diameter <= part.diameter);
-      otherMergingParts.forEach(function(otherPart, otherIndex) {
+    let tempMergingParts = [...mergingParts];
+
+    while  (tempMergingParts.length > 1)  {
+      part = tempMergingParts[0];
+      toMergeParts = tempMergingParts.filter(otherPart => part != otherPart && otherPart.diameter <= part.diameter)
+      .filter(function(otherPart)  {
         let distance = Math.sqrt(Math.pow(part.x - otherPart.x, 2) + Math.pow(part.y - otherPart.y, 2));
         let distanceBetween = distance - (part.diameter + otherPart.diameter) / 2 - this.borderWidth*2;
-        if (-distanceBetween > otherPart.diameter * 2/3)  {
-          part.updateDiameter(Math.sqrt(Math.pow(part.diameter, 2) + Math.pow(otherPart.diameter, 2)));
-          this.player.parts.splice(this.player.parts.indexOf(otherPart), 1);
-          mergingParts.splice(index, 1);
-          otherMergingParts.splice(otherIndex, 1);
-        }
+        return -distanceBetween > otherPart.diameter * 2/3;
+      }.bind(this)).forEach(function(otherPart)  {
+        part.updateDiameter(Math.sqrt(Math.pow(part.diameter, 2) + Math.pow(otherPart.diameter, 2)));
+        tempMergingParts.splice(tempMergingParts.indexOf(otherPart));
+        this.player.parts.splice(this.player.parts.indexOf(otherPart), 1);
+        mergeDone = true;
       }.bind(this));
-    }.bind(this));
+      tempMergingParts.splice(tempMergingParts.indexOf(part), 1);
+    }
 
     //PARTS REPULSING
 
@@ -394,13 +425,13 @@ Game.prototype.render = function()  {
           let yFactor = (part.y - otherPart.y) / distance;
           let xDifference = xFactor * (-distanceBetween);
           let yDifference = yFactor * (-distanceBetween);
-          let xChange = xFactor * this.partsRepulsingSpeed / 2;
-          let yChange = yFactor * this.partsRepulsingSpeed / 2;
-          if (Math.abs(xChange) > Math.abs(xDifference / 2))  {
-            xChange = xDifference / 2;
+          let xChange = xFactor * this.partsRepulsingSpeed;
+          let yChange = yFactor * this.partsRepulsingSpeed;
+          if (Math.abs(xChange) > Math.abs(xDifference))  {
+            xChange = xDifference;
           }
-          if (Math.abs(yChange) > Math.abs(yDifference / 2))  {
-            yChange = yDifference / 2;
+          if (Math.abs(yChange) > Math.abs(yDifference))  {
+            yChange = yDifference;
           }
           let totalSpeed = part.speed + otherPart.speed;
           part.x += xChange * part.speed / totalSpeed;
@@ -411,9 +442,20 @@ Game.prototype.render = function()  {
       }.bind(this));
     }.bind(this));
 
+    let newCamX = this.player.parts.reduce((total, next) => total + next.x, 0) / this.player.parts.length;
+    let newCamY = this.player.parts.reduce((total, next) => total + next.y, 0) / this.player.parts.length;
+    if (mergeDone)  {
+      this.camXanimated.animate(newCamX - this.camX, 500, easeOut);
+      this.camYanimated.animate(newCamY - this.camY, 500, easeOut);
+    }
+    else  {
+      this.camXanimated.animate(newCamX - this.camX, 0, linear);
+      this.camYanimated.animate(newCamY - this.camY, 0, linear);
+    }
+    this.camX = newCamX;
+    this.camY = newCamY;
+
     this.player.lastPosUpdate = Date.now();
-    this.camX = this.player.parts.reduce((total, next) => total + next.x, 0) / this.player.parts.length;
-    this.camY = this.player.parts.reduce((total, next) => total + next.y, 0) / this.player.parts.length;
 
 
   }
@@ -444,19 +486,14 @@ Game.prototype.render = function()  {
 
 //INITIALIZE GAME
 
-for(let i = 0; i < game.mapWidth*game.mapHeight/10000 * game.foodsPer100sqrpx * game.preFoodPart; i++)  {
-  game.spawnFood();
-}
-game.canvas.resize();
-game.latestRenderTime = Date.now();
-game.render();
+game.initialize();
 
 
 
 
 
 
-let touchCount = 0, focusedOnCanvas = true;
+let touchMoveCount, focusedOnCanvas = true;
 canvasFocusCheck = function(target)  {
   focusedOnCanvas = target == game.canvas.el;
 }
@@ -475,17 +512,23 @@ game.canvas.el.addEventListener("dblclick", function() {
   darkMode++;
 });
 game.canvas.el.addEventListener("touchstart", function(event) {
-  touchCount += event.changedTouches.length;
   if (event.touches.length < 2)  {
 		event.preventDefault();
   }
   game.mouseX = event.touches[0].clientX;
   game.mouseY = event.touches[0].clientY;
-  if (touchCount == 3)  {
+
+  if (event.touches.length == 4)  {
+    darkMode++;
+  }
+  else if (event.touches.length == 3)  {
     switchFullscreen();
   }
-  if (touchCount == 4)  {
-    darkMode++;
+  else if (event.touches.length == 2)  {
+    setTimeout(function() {
+      if (touchMoveCount == 1)
+      game.player.split();
+    }, 300);
   }
 });
 game.canvas.el.addEventListener("touchmove", function(event) {
@@ -494,9 +537,7 @@ game.canvas.el.addEventListener("touchmove", function(event) {
   }
   game.mouseX = event.touches[0].clientX;
   game.mouseY = event.touches[0].clientY;
-});
-game.canvas.el.addEventListener("touchend", function(event)  {
-  touchCount -= event.changedTouches.length;
+  touchMoveCount = event.touches.length;
 });
 window.addEventListener("resize", function()  {
 	game.canvas.resize();
