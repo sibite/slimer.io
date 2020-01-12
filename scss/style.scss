@@ -1,0 +1,415 @@
+//VARIABLES
+
+$short-transition-time: 200ms;
+$medium-transition-time: 500ms;
+$border-radius: 10px;
+$medium-black-transparent: rgba(0, 0, 0, 0.5);
+
+//MAIN ELEMENTS
+
+body  {
+  margin: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+#game  {
+  position: absolute;
+}
+
+#gui  {
+  position: absolute;
+  font-family: "Ubuntu", sans-serif;
+  font-weight: bold;
+
+  & > .relative-container > div  {
+    position: absolute
+  }
+}
+
+
+//COMMON CLASSES
+
+.relative-container  {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.window  {
+  width: 300px;
+  margin: 15vh auto;
+  background: white;
+  box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.2);
+
+  h1:first-child,
+  h2:first-child,
+  h3:first-child,
+  h4:first-child,
+  h5:first-child  {
+    margin-top: 0;
+    text-align: center;
+  }
+}
+
+.dark-mode .window  {
+  background: black;
+  color: white;
+}
+
+.shadow  {
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.clear-both  {
+  &::after  {
+    content: '';
+    display: block;
+    clear: both;
+  }
+}
+
+.centering-cell  {
+  display: table-cell;
+  vertical-align: middle;
+}
+
+//INPUTS AND BUTTONS
+
+$inputs: '
+input[type="text"],
+input[type="password"],
+input[type="number"],
+input[type="email"]';
+
+$buttons: '
+input[type="submit"],
+input[type="button"],
+button';
+
+$dark-mode-inputs: '
+.dark-mode input[type="text"],
+.dark-mode input[type="password"],
+.dark-mode input[type="number"],
+.dark-mode input[type="email"]';
+
+$dark-mode-buttons: '
+.dark-mode input[type="submit"],
+.dark-mode input[type="button"],
+.dark-mode button';
+
+#{$inputs}, #{$buttons}
+{
+  padding: 6px;
+  background: white;
+  border: 4px solid rgba(0, 0, 0, 0.15);
+  border-radius: $border-radius;
+  font-size: 22px;
+  font-family: inherit;
+  font-weight: inherit;
+  outline: none;
+  transition: all $short-transition-time;
+}
+
+#{$dark-mode-inputs}, #{$dark-mode-buttons}  {
+  &:not(.colored-button)  {
+    background: black;
+    color: white;
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+}
+
+#{$inputs} {
+  &:focus  {
+    border-color: rgba(0, 0, 0, 0.2);
+  }
+}
+
+#{$dark-mode-inputs} {
+  &:focus  {
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+}
+
+#{$inputs}, #{$buttons}
+{
+  &:hover:not(.game-control)  {
+    box-shadow: 0 0 0 1000px rgba(0, 0, 0, 0.15) inset;
+  }
+  &.touching  {
+    box-shadow: 0 0 0 1000px rgba(0, 0, 0, 0.15) inset;
+  }
+}
+
+#{$dark-mode-inputs}, #{$dark-mode-buttons}
+{
+	&:hover:not(.game-control)	{
+		box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.15) inset;
+	}
+	&.touching  {
+		box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.15) inset;
+	}
+}
+
+.element  {
+  border-radius: $border-radius;
+  padding: 10px;
+}
+
+.bordered  {
+  border: 4px solid rgba(0, 0, 0, 0.1);
+}
+
+.dark-mode .bordered  {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.checkbox  {
+  & > *  {
+    display: inline-block;
+    float: left;
+  }
+
+  div  {
+    width: 30px;
+    height: 30px;
+    box-sizing: border-box;
+    border-radius: 100%;
+    border: 4px solid rgba(0, 0, 0, 0.3);
+    background: hsl(320, 0%, 50%);
+    transition: background $short-transition-time,
+    border $short-transition-time;
+
+    &:hover  {
+      border: 4px solid rgba(0, 0, 0, 0.4);
+    }
+  }
+
+  input  {
+    display: none;
+    &:checked + div  {
+      background: hsl(320, 100%, 50%);
+    }
+  }
+
+  span  {
+    line-height: 30px;
+    margin-left: 10px;
+  }
+}
+
+
+//VISIBILITY CLASS
+
+.hideable  {
+  opacity: 0;
+  pointer-events: none;
+}
+.visible  {
+  opacity: 1;
+  pointer-events: all;
+}
+
+
+//GAME UI
+
+#game-ui  {
+  width: 100%;
+  height: 100%;
+  //touch-action: none;
+}
+
+#open-in-game-menu  {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  width: 60px;
+  height: 60px;
+	opacity: 0.5;
+  background-image: url(../images/hamburger.svg);
+  background-position: center;
+  background-size: 100%;
+  background-repeat: no-repeat;
+}
+
+.dark-mode #open-in-game-menu  {
+  background-image: url(../images/hamburger-light.svg);
+}
+
+#open-in-game-menu:hover	{
+	opacity: 1;
+}
+
+#in-game-menu-shadow  {
+  transition: opacity 500ms;
+}
+
+#in-game-menu  {
+  display: table;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+
+  & > .centering-cell > button  {
+    width: 250px;
+    margin: 5px 0;
+	font-size: 16px;
+  }
+}
+
+#mass  {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  padding: 5px 10px;
+  background: $medium-black-transparent;
+  color: white;
+
+  span:first-child  {
+    margin-right: 6px;
+  }
+}
+
+.game-control  {
+  position: absolute;
+  width: 70px;
+  height: 70px;
+  border-radius: 100%;
+  padding: 5px;
+  background-color: hsla(0, 0%, 50%, 0.3);
+  transition: none;
+  img  {
+    width: 100%;
+    height: 100%;
+    opacity: 0.3;
+  }
+
+  &.touching img  {
+    opacity: 0.5;
+  }
+}
+
+.dark-mode .game-control  {
+  border-color: rgba(255, 255, 255, 0.1);
+  img  {
+    filter: invert(100%);
+  }
+}
+
+#split  {
+  bottom: 30px;
+  right: 100px;
+}
+
+#eject  {
+  bottom: 100px;
+  right: 30px;
+}
+
+#joystick-base  {
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  border-radius: 100%;
+  background: hsla(0, 0%, 50%, 0.3);
+  transform:translate(-50%, -50%);
+  transition: opacity $short-transition-time;
+}
+
+#joystick  {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  margin: 20px;
+  border-radius: 100%;
+  background: hsla(0, 0%, 50%, 0.5);
+
+}
+
+
+//MAIN MENU
+
+#main-menu  {
+  width: 100%;
+  height: 100%;
+  background: hsl(180, 100%, 96%) url("../images/grid.svg") center /50px;
+  transition: all $medium-transition-time;
+}
+
+.dark-mode #main-menu  {
+  background-color: hsl(300, 100%, 4%);
+}
+
+#main-panel  {
+  padding: 1px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+#segments  {
+  margin-top: 20vh;
+  .segment  {
+    display: inline-block;
+
+    *  {
+      clear: both;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+      margin-bottom: 40px;
+    }
+
+    #logo  {
+      height: 50px;
+    }
+  }
+}
+
+input#nickname  {
+  width: 275px;
+}
+
+button#play  {
+  width: 150px;
+  height: 80px;
+  background: hsl(110, 100%, 50%) url("../images/play.svg") center /32px no-repeat;
+}
+
+button#open-settings1  {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  width: 60px;
+  height: 60px;
+  background: hsl(320, 100%, 50%) url("../images/settings.svg") center / 40px no-repeat;
+}
+
+//SETTINGS
+
+#settings-shadow  {
+  transition: opacity $medium-transition-time;
+}
+
+#settings  {
+  position: relative;
+  transition: all $medium-transition-time;
+}
+
+#close-settings  {
+  cursor: pointer;
+  position: absolute;
+  filter: invert(100%);
+  border: none;
+  top: 10px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  background: url("../images/close.svg") center /20px no-repeat;
+  transition: all $medium-transition-time;
+}
+
+.dark-mode #close-settings  {
+  filter: none;
+}

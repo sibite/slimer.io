@@ -5,20 +5,75 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 		<meta name="theme-color" content="#FFFFFF">
 		<title>Slimer.io</title>
-		<link href="https://fonts.googleapis.com/css?family=Ubuntu:400,700&display=swap" rel="stylesheet">
-		<style media="screen">
-			body  {
-				margin: 0;
-				overflow: hidden;
-			}
-		</style>
+		<link rel="stylesheet" href="css/fonts.css">
+		<link rel="stylesheet" href="css/style.css">
 	</head>
 	<body>
 
 		<canvas id="game"></canvas>
 
+		<div id="gui">
+			<div class="relative-container">
+				<div id="game-ui">
+					<div class="relative-container">
+						<div class="shadow hideable" id="in-game-menu-shadow">
+							<div id="in-game-menu">
+								<div class="centering-cell">
+									<button type="button" id="return-to-game">Wróć do gry</button>
+									<br /><br />
+									<button type="button" id="in-game-open-settings">Ustawienia</button><br />
+									<button type="button" id="switch-fullscreen">Przełącz pełny ekran</button>
+									<br /><br />
+									<button type="button" id="exit-game">Wyjdź z gry</button>
+								</div>
+							</div>
+						</div>
+						<button type="button" id="open-in-game-menu" style="display:none;"></button>
+						<div id="mass" class="element"><span>Mass:</span><span class="data-field">0</span></div>
+						<div class="hideable" id="container-game-controls">
+							<button type="button" id="split" class="game-control colored-button"><img src="images/split-button.svg"/></button>
+							<button type="button" id="eject" class="game-control colored-button"><img src="images/eject-button.svg"/></button>
+							<div id="joystick-base" class="hideable"><div id="joystick"></div></div>
+						</div>
+					</div>
+				</div>
+				<div id="main-menu" class="hideable visible">
+					<div class="relative-container">
+						<button type="button" id="open-settings1" class="colored-button"></button>
+						<div id="main-panel">
+							<div id="segments">
+								<div class="segment">
+									<img id="logo" src="images/logo.svg" alt="Slimer.io">
+									<input type="text" id="nickname" placeholder="Nickname" maxlength="26">
+									<button type="button" id="play" class="colored-button"></button>
+								</div>
+								<div class="segment">
+
+								</div>
+								<div class="segment">
+
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="shadow hideable" id="settings-shadow">
+					<div id="settings" class="element bordered window clear-both">
+						<h2>Settings</h2>
+						<button id="close-settings"></button>
+						<label class="checkbox" id="enable-dark-mode-label">
+							<input type="checkbox" id="enable-dark-mode">
+							<div></div>
+							<span>Dark mode</span>
+						</label>
+					</div>
+				</div>
+			</div>
+		</div>
+
 		<script type="text/javascript" src="bezier.js"></script>
 		<script type="text/javascript" src="slimer.io.js"></script>
+		<script type="text/javascript" src="gui.js"></script>
 		<script type="text/javascript">
 			if (window.location.href.search("webhostapp") != -1)  {
 				setTimeout(function() {

@@ -1,0 +1,276 @@
+body {
+  margin: 0;
+  overflow: hidden;
+  position: relative; }
+
+#game {
+  position: absolute; }
+
+#gui {
+  position: absolute;
+  font-family: "Ubuntu", sans-serif;
+  font-weight: bold; }
+  #gui > .relative-container > div {
+    position: absolute; }
+
+.relative-container {
+  position: relative;
+  width: 100%;
+  height: 100%; }
+
+.window {
+  width: 300px;
+  margin: 15vh auto;
+  background: white;
+  box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.2); }
+  .window h1:first-child,
+  .window h2:first-child,
+  .window h3:first-child,
+  .window h4:first-child,
+  .window h5:first-child {
+    margin-top: 0;
+    text-align: center; }
+
+.dark-mode .window {
+  background: black;
+  color: white; }
+
+.shadow {
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.4); }
+
+.clear-both::after {
+  content: '';
+  display: block;
+  clear: both; }
+
+.centering-cell {
+  display: table-cell;
+  vertical-align: middle; }
+
+input[type="text"], input[type="password"], input[type="number"], input[type="email"], input[type="submit"], input[type="button"], button {
+  padding: 6px;
+  background: white;
+  border: 4px solid rgba(0, 0, 0, 0.15);
+  border-radius: 10px;
+  font-size: 22px;
+  font-family: inherit;
+  font-weight: inherit;
+  outline: none;
+  transition: all 200ms; }
+
+.dark-mode input[type="text"]:not(.colored-button), .dark-mode input[type="password"]:not(.colored-button), .dark-mode input[type="number"]:not(.colored-button), .dark-mode input[type="email"]:not(.colored-button), .dark-mode input[type="submit"]:not(.colored-button), .dark-mode input[type="button"]:not(.colored-button), .dark-mode button:not(.colored-button) {
+  background: black;
+  color: white;
+  border-color: rgba(255, 255, 255, 0.15); }
+
+input[type="text"]:focus, input[type="password"]:focus, input[type="number"]:focus, input[type="email"]:focus {
+  border-color: rgba(0, 0, 0, 0.2); }
+
+.dark-mode input[type="text"]:focus, .dark-mode input[type="password"]:focus, .dark-mode input[type="number"]:focus, .dark-mode input[type="email"]:focus {
+  border-color: rgba(255, 255, 255, 0.2); }
+
+input[type="text"]:hover:not(.game-control), input[type="password"]:hover:not(.game-control), input[type="number"]:hover:not(.game-control), input[type="email"]:hover:not(.game-control), input[type="submit"]:hover:not(.game-control), input[type="button"]:hover:not(.game-control), button:hover:not(.game-control) {
+  box-shadow: 0 0 0 1000px rgba(0, 0, 0, 0.15) inset; }
+input[type="text"].touching, input[type="password"].touching, input[type="number"].touching, input[type="email"].touching, input[type="submit"].touching, input[type="button"].touching, button.touching {
+  box-shadow: 0 0 0 1000px rgba(0, 0, 0, 0.15) inset; }
+
+.dark-mode input[type="text"]:hover:not(.game-control), .dark-mode input[type="password"]:hover:not(.game-control), .dark-mode input[type="number"]:hover:not(.game-control), .dark-mode input[type="email"]:hover:not(.game-control), .dark-mode input[type="submit"]:hover:not(.game-control), .dark-mode input[type="button"]:hover:not(.game-control), .dark-mode button:hover:not(.game-control) {
+  box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.15) inset; }
+.dark-mode input[type="text"].touching, .dark-mode input[type="password"].touching, .dark-mode input[type="number"].touching, .dark-mode input[type="email"].touching, .dark-mode input[type="submit"].touching, .dark-mode input[type="button"].touching, .dark-mode button.touching {
+  box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.15) inset; }
+
+.element {
+  border-radius: 10px;
+  padding: 10px; }
+
+.bordered {
+  border: 4px solid rgba(0, 0, 0, 0.1); }
+
+.dark-mode .bordered {
+  border-color: rgba(255, 255, 255, 0.1); }
+
+.checkbox > * {
+  display: inline-block;
+  float: left; }
+.checkbox div {
+  width: 30px;
+  height: 30px;
+  box-sizing: border-box;
+  border-radius: 100%;
+  border: 4px solid rgba(0, 0, 0, 0.3);
+  background: gray;
+  transition: background 200ms, border 200ms; }
+  .checkbox div:hover {
+    border: 4px solid rgba(0, 0, 0, 0.4); }
+.checkbox input {
+  display: none; }
+  .checkbox input:checked + div {
+    background: #ff00aa; }
+.checkbox span {
+  line-height: 30px;
+  margin-left: 10px; }
+
+.hideable {
+  opacity: 0;
+  pointer-events: none; }
+
+.visible {
+  opacity: 1;
+  pointer-events: all; }
+
+#game-ui {
+  width: 100%;
+  height: 100%; }
+
+#open-in-game-menu {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  width: 60px;
+  height: 60px;
+  opacity: 0.5;
+  background-image: url(../images/hamburger.svg);
+  background-position: center;
+  background-size: 100%;
+  background-repeat: no-repeat; }
+
+.dark-mode #open-in-game-menu {
+  background-image: url(../images/hamburger-light.svg); }
+
+#open-in-game-menu:hover {
+  opacity: 1; }
+
+#in-game-menu-shadow {
+  transition: opacity 500ms; }
+
+#in-game-menu {
+  display: table;
+  width: 100%;
+  height: 100%;
+  text-align: center; }
+  #in-game-menu > .centering-cell > button {
+    width: 250px;
+    margin: 5px 0;
+    font-size: 16px; }
+
+#mass {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  padding: 5px 10px;
+  background: rgba(0, 0, 0, 0.5);
+  color: white; }
+  #mass span:first-child {
+    margin-right: 6px; }
+
+.game-control {
+  position: absolute;
+  width: 70px;
+  height: 70px;
+  border-radius: 100%;
+  padding: 5px;
+  background-color: rgba(128, 128, 128, 0.3);
+  transition: none; }
+  .game-control img {
+    width: 100%;
+    height: 100%;
+    opacity: 0.3; }
+  .game-control.touching img {
+    opacity: 0.5; }
+
+.dark-mode .game-control {
+  border-color: rgba(255, 255, 255, 0.1); }
+  .dark-mode .game-control img {
+    filter: invert(100%); }
+
+#split {
+  bottom: 30px;
+  right: 100px; }
+
+#eject {
+  bottom: 100px;
+  right: 30px; }
+
+#joystick-base {
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  border-radius: 100%;
+  background: rgba(128, 128, 128, 0.3);
+  transform: translate(-50%, -50%);
+  transition: opacity 200ms; }
+
+#joystick {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  margin: 20px;
+  border-radius: 100%;
+  background: rgba(128, 128, 128, 0.5); }
+
+#main-menu {
+  width: 100%;
+  height: 100%;
+  background: #ebffff url("../images/grid.svg") center/50px;
+  transition: all 500ms; }
+
+.dark-mode #main-menu {
+  background-color: #140014; }
+
+#main-panel {
+  padding: 1px;
+  box-sizing: border-box;
+  text-align: center; }
+
+#segments {
+  margin-top: 20vh; }
+  #segments .segment {
+    display: inline-block; }
+    #segments .segment * {
+      clear: both;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+      margin-bottom: 40px; }
+    #segments .segment #logo {
+      height: 50px; }
+
+input#nickname {
+  width: 275px; }
+
+button#play {
+  width: 150px;
+  height: 80px;
+  background: #2bff00 url("../images/play.svg") center/32px no-repeat; }
+
+button#open-settings1 {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  width: 60px;
+  height: 60px;
+  background: #ff00aa url("../images/settings.svg") center/40px no-repeat; }
+
+#settings-shadow {
+  transition: opacity 500ms; }
+
+#settings {
+  position: relative;
+  transition: all 500ms; }
+
+#close-settings {
+  cursor: pointer;
+  position: absolute;
+  filter: invert(100%);
+  border: none;
+  top: 10px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  background: url("../images/close.svg") center/20px no-repeat;
+  transition: all 500ms; }
+
+.dark-mode #close-settings {
+  filter: none; }
