@@ -84,13 +84,18 @@ let Gui = function(el)  {
 			setMousePos(game.canvas.styleWidth / 2, game.canvas.styleHeight / 2);
 		}
         gui.switchVisibility("inGameMenu");
+		if (!gui.inGameMenu.classList.contains("visible")) {
+			document.activeElement.blur();
+			setTimeout(function()  {setFocus({target: gui.getContainer(gui.gameUI)});}, 30);
+		}
       }
     },
 
 	returnToGame:	{
 		el: el.querySelector("#return-to-game"),
 		click: function()	{
-			setTimeout(function()  {setFocus({target: gui.getContainer(gui.gameUI)});}, 50);
+			document.activeElement.blur();
+			setTimeout(function()  {setFocus({target: gui.getContainer(gui.gameUI)});}, 30);
 			gui.switchVisibility("inGameMenu", "hide");
 		}
 	},
@@ -191,16 +196,40 @@ gui.el.addEventListener("click", function(event)  {
 
 
 let setMousePos = function(clientX, clientY)  {
-  if (gameObjInitialized)  {
-    game.mouseX = clientX * game.canvas.width / game.canvas.styleWidth;
-    game.mouseY = clientY * game.canvas.height / game.canvas.styleHeight;
-  }
+	if (gameObjInitialized)  {
+		game.setMousePosition(
+			clientX * game.canvas.width / game.canvas.styleWidth,
+			clientY * game.canvas.height / game.canvas.styleHeight);
+	}
 }
 
 gui.gameUI.addEventListener("mousemove", function(event) {
   if (event.target == gui.getContainer(gui.gameUI))  {
     setMousePos(event.clientX, event.clientY);
   }
+});
+
+//KEYBOARD
+
+document.addEventListener("keypress", function(event) {
+	if (focusedElement == gui.getContainer(gui.gameUI))  {
+		if (event.key == " ") {
+			game.player.split();
+		}
+		else if (event.key == "w" || event.key == "W")  {
+			game.player.ejectMass();
+		}
+	}
+});
+
+document.addEventListener("keyup", function(event)  {
+	if (event.key == "Escape" && !gui.mainMenu.classList.contains("visible"))	{
+		if (gui.settingsWindow.classList.contains("visible"))	{
+			gui.switchVisibility("settingsWindow", "hide");
+		}	else {
+			gui.buttons.openInGameMenu.click();
+		}
+	}
 });
 
 //MOVE JOYSTICK FUNCTION
@@ -269,32 +298,14 @@ if ("ontouchstart" in document.documentElement)  {
 }
 
 
-//KEYBOARD
-
-document.addEventListener("keypress", function(event) {
-  if (focusedElement == gui.getContainer(gui.gameUI))  {
-    if (event.key == " ") {
-      game.player.split();
-    }
-    else if (event.key == "w" || event.key == "W")  {
-      game.player.ejectMass();
-    }
-  }
-});
-
-document.addEventListener("keyup", function(event)  {
-	if (event.key == "Escape" && !gui.mainMenu.classList.contains("visible"))	{
-		gui.buttons.openInGameMenu.click();
-	}
-});
-
 //WINDOW RESIZE
 
 window.addEventListener("resize", function()  {
 	let rePositionMouse = false;
-	if (game.mouseX == game.canvas.width / 2
-		&& game.mouseY == game.canvas.height / 2)	{
-			rePositionMouse = true;
+	if (typeof game == "object"
+		&& game.mouse.x == game.canvas.width / 2
+		&& game.mouse.y == game.canvas.height / 2)	{
+		rePositionMouse = true;
 	}
 	canvas.resize();
 	gui.resize();

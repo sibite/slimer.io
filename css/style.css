@@ -213,6 +213,7 @@ input[type="text"].touching, input[type="password"].touching, input[type="number
 #main-menu {
   width: 100%;
   height: 100%;
+  overflow: auto;
   background: #ebffff url("../images/grid.svg") center/50px;
   transition: all 500ms; }
 

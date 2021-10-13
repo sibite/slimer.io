@@ -27,146 +27,278 @@ let easeIn = new BezierCurve(30, 3, [0, 0], [0.5, 0], [1, 1], [1, 1]);
 let easeOut = new BezierCurve(30, 3, [0, 0], [0, 0], [0.5, 1], [1, 1]);
 
 Animated.prototype.animate = function(newValue, time, timingFunction = ease, delay = 0)  {
-  let frameRate = gameObjInitialized ? game.frameRate : 60;
-  let i = 1;
-  let valueChange = newValue - this.realValue;
-  let maxI = Math.round(time / (1000 / frameRate));
-  this.realValue = newValue;
-  this.animCount += 1;
-  let frame = function()  {
-    if (maxI > 1)  {
-      this.value += valueChange * (    timingFunction.getYofX(i / (maxI-1)) - timingFunction.getYofX((i-1) / (maxI-1))   );
-    }  else  {
-      this.value += valueChange;
-    }
-    i++
-    if (i < maxI)  {
-      setTimeout(frame, 1000 / frameRate);
-    }
-    else  {
-      this.animCount -= 1;
-      if (this.animCount == 0)  {
-        this.value = this.realValue
-      }
-    }
-  }.bind(this);
-  if (delay <= 0)
-    frame();
-  else
-    setTimeout(frame, delay);
+	let frameRate = gameObjInitialized ? game.frameRate : 60,
+		i = 1,
+		maxI = Math.max(Math.round(time / (1000 / frameRate)), 2),
+		valueChange = newValue - this.realValue,
+		startTimee = Date.now();
+	this.realValue = newValue;
+	this.animCount += 1;
+	let frame = function()  {
+		this.value += valueChange * (timingFunction.getYofX(i / (maxI-1)) - timingFunction.getYofX((i-1) / (maxI-1)) );
+		i++
+		if (i < maxI)  {
+			let doTime = Date.now() - startTime;
+			var startTime = Date.now();
+			setTimeout(frame, 1000 / frameRate - doTime);
+		}
+		else  {
+			this.animCount -= 1;
+			if (this.animCount == 0)  {
+				this.value = this.realValue
+			}
+		}
+	}.bind(this);
+	if (delay <= 0)
+		frame();
+	else
+		setTimeout(frame, delay);
+}
+
+//VECTORS
+
+let Vector = function(x, y)	{
+	Object.defineProperties(this, {
+		x:	{
+			get: function()	{
+				return this._x;
+			},
+			set: function(value) {
+				this._x = value;
+				this.calc();
+			}
+		},
+		y:	{
+			get: function()	{
+				return this._y;
+			},
+			set: function(value) {
+				this._y = value;
+				this.calc();
+			}
+		},
+		length:	{
+			get: function()	{
+				return this._length;
+			},
+			set: function(value)	{
+				if (this._length != 0)	{
+					this._x *= value/this._length;
+					this._y *= value/this._length;
+				} else {
+					this._x = this._y = value;
+				}
+				this._length = Math.abs(value);
+			}
+		},
+		angle: {
+			get: function() {
+				return this._angle;
+			},
+			set: function(value)	{
+				this._x = Math.cos(value) * this._length;
+				this._y = -Math.sin(value) * this._length;
+				this.calc();
+			}
+		}
+	});
+	this.x = x;
+	this.y = y;
+}
+
+Vector.fromAngle = function(angle, length = 1)	{
+	let vector = new Vector(length, 0);
+	vector.angle = angle;
+	return vector;
+}
+Vector.prototype.calc = function() {
+	this._length = Math.sqrt(Math.pow(this._x, 2) + Math.pow(this._y, 2));
+	let angle = Math.atan2(-this.y, this.x);
+	this._angle = angle >= 0 ? angle : 2*Math.PI + angle;
+}
+Vector.prototype.add = function() {
+	if (arguments.length == 1)	{
+		var vector = arguments[0];
+		this._x += vector.x;
+		this._y += vector.y;
+		this.calc();
+	}	else {
+		this._x += arguments[0];
+		this._y += arguments[1];
+		this.calc();
+	}
+	return this;
+}
+Vector.prototype.subtract = function() {
+	if (arguments.length == 1)	{
+		var vector = arguments[0];
+		this._x -= vector.x;
+		this._y -= vector.y;
+		this.calc();
+	}	else {
+		this._x -= arguments[0];
+		this._y -= arguments[1];
+		this.calc();
+	}
+	return this;
+}
+Vector.prototype.toLength = function(length) {
+	let vector = this.copy();
+	vector.length = length;
+	return vector;
+}
+Vector.prototype.setLength = function(length) {
+	this.length = length;
+	return this;
+}
+Vector.prototype.toFactor = function() {
+	this.length = 1;
+	return this;
+}
+Vector.prototype.copy = function() {
+	return new Vector(this.x, this.y);
 }
 
 
 //GAME ELEMENTS
 
-let SlimePart = function(parent, diameter, x, y, xExtraSpeed = 0, yExtraSpeed = 0, xMove = 0, yMove = 0)  {
-  this.initialized = false;
-  this.type = "SlimePart";
-  this.parent = parent;
-  this.diameter = diameter;
-  this.diameterAnimated = new Animated(diameter);
-  this.color = parent.color;
-  this.borderColor = parent.borderColor;
-  this.opacity = new Animated(1);
-  this.score = 0;
-  this.speed = 0;
-  this.xExtraSpeed = xExtraSpeed;
-  this.yExtraSpeed = yExtraSpeed;
-	this.x = x;
-	this.y = y;
-  this.xAnimated = new Animated(x);
-  this.yAnimated = new Animated(y);
-  this.xMove = xMove;
-  this.yMove = yMove;
-
-  this.updateDiameter(diameter);
-  this.initialized = true;
+let GameObject = function(game, mass, x, y, move = {}) {
+	this.game = game;
+	this.diameter = new Animated(game.getDiameter(mass));
+	this.x = new Animated(x);
+	this.y = new Animated(y);
+	this.move = move;
+	this.mass = mass;
+	this.speed = 0;
 }
 
-SlimePart.prototype.addMass = function(mass)  {
-  let customBaseArea = Math.pow(this.diameter / 2, 2);
-  let customAddArea = mass * 100 / Math.PI;
-  let newDiameter = Math.sqrt(customBaseArea + customAddArea) * 2;
-  this.updateDiameter(newDiameter);
+GameObject.prototype.addMass = function(mass)  {
+  this.setMass(this.mass + mass);
 }
 
-SlimePart.prototype.setMass = function(mass)  {
+GameObject.prototype.setMass = function(mass)  {
   mass = Math.max(mass, 0.00001);
-  let newDiameter = Math.sqrt(mass * 100 / Math.PI) * 2;
-  this.updateDiameter(newDiameter);
+  let newDiameter = this.game.getDiameter(mass);
+  this.diameter.animate(newDiameter, 700, easeOut);
+  this.mass = mass;
+  this.speed = 28 / Math.pow(newDiameter, 10/25);
 }
 
-SlimePart.prototype.updateDiameter = function(diameter)  {
-  this.diameterAnimated.animate(diameter, 700, easeOut);
-  this.diameter = diameter;
-  this.score = Math.floor(Math.pow(diameter/2, 2) * Math.PI / 100);
-  this.speed = 25 / Math.pow(this.diameter, 10/25);
-};
+GameObject.prototype.getPositionVector = function(animated = false) {
+	if (animated) {
+		return new Vector(this.x.value, this.y.value);
+	}	else {
+		return new Vector(this.x.realValue, this.y.realValue);
+	}
+}
+
+GameObject.prototype.slowDownMove = function(name, slowness)	{
+	let move = this.move[name];
+	if (!move) {
+		return new Vector(0, 0);
+	}
+	if (move.length > 0)	{
+		var nextMove = move.toLength(Math.max(move.length - this.game.lastRenderTicks * slowness, 0)),
+			middleRealMove = move.copy().add(nextMove).toLength((move.length + nextMove.length) / 2 * this.game.lastRenderTicks);
+		this.move[name] = nextMove;
+	}	else {
+		var middleRealMove = move;
+	}
+	return middleRealMove;
+}
+
+let SlimePart = function(game, parent, mass, x, y, move = {splitting: new Vector(0, 0)}, lastMove = new Vector(0, 0))  {
+	GameObject.call(this, game, mass, x, y, move);
+	this.type = "SlimePart";
+	this.parent = parent;
+	this.color = parent.color;
+	this.borderColor = parent.borderColor;
+	this.move.repulsing = new Vector(0, 0);
+	this.lastMove = lastMove;
+	this.mouseFactor = lastMove.copy().toFactor();
+	this.initialized = true;
+	this.setMass(mass);
+}
+
+//SLIME PART
+
+SlimePart.prototype = Object.create(GameObject.prototype);
+Object.defineProperty(SlimePart.prototype, "constructor", {
+	value: SlimePart, enumerable: false, writable: true});
 
 SlimePart.prototype.explode = function(mass)  {
-  if (this.initialized == true)  {
-    if (this.parent.parts.length >= game.maxParts)  {
-      this.addMass(mass);
-    }
-    else  {
-      let explodeMass = Math.max(game.getMass(this.diameter) * game.explodeMassFactor, game.minSplitMass / 2);
-      while (this.parent.parts.length < game.maxParts && explodeMass <= game.getMass(this.diameter) / 2)  {
-        let radian = Math.random() * Math.PI * 2;
-        this.parent.mergeTimeLeft = game.mergeTime;
-        this.addMass(-explodeMass);
-        this.parent.parts.push(new SlimePart(
-          this.parent,
-          game.getDiameter(explodeMass),
-          this.x + Math.cos(radian) * this.diameter / 2,
-          this.y + Math.sin(radian) * this.diameter / 2,
-          Math.cos(radian) * game.splitSpeed * 1.5,
-          Math.sin(radian) * game.splitSpeed * 1.5
-        ));
-      }
-    }
-  }
+	if (this.initialized == true)  {
+		if (this.parent.parts.length >= game.maxParts)  {
+			this.addMass(mass);
+		}
+		else  {
+			let massLeftToUse = this.game.explodeTotalMassFactor * this.mass,
+				minMass = this.game.explodeMassMin,
+				maxFactor = this.game.explodeMassMaxFactor,
+				freeSlots;
+			while ((freeSlots = this.game.maxParts - this.parent.parts.length) > 0 & massLeftToUse >= minMass)  {
+				let nextMass = randNum(minMass, Math.max((massLeftToUse - freeSlots * minMass) * maxFactor, minMass)),
+					angle = Math.random()*Math.PI*2,
+					move = Vector.fromAngle(angle),
+					startDistance = (this.diameter.realValue - this.game.getDiameter(nextMass)) / 2;
+				massLeftToUse -= nextMass;
+				move.length = this.game.explodeSpeed;
+				this.parent.mergeTimeLeft = game.mergeTime;
+				this.addMass(-nextMass);
+				this.parent.parts.push(new SlimePart(
+					this.game,
+					this.parent,
+					nextMass,
+					this.x.realValue + Math.cos(angle) * startDistance,
+					this.y.realValue + Math.sin(angle) * startDistance,
+					{splitting: move}
+				));
+			}
+		}
+	}
 }
 
+//SLIME
 
-let Slime = function(diameter, color, borderColor, x, y)  {
-  this.score = Math.floor(Math.pow(diameter/2, 2) * Math.PI / 100);
-  this.nickname = "";
-  this.diameterSum = diameter;
+let Slime = function(game, mass, color, borderColor, x, y)  {
+	this.game = game;
+	this.mass = mass;
+	this.nickname = "";
+	this.diameterSum = this.game.getDiameter(mass);
 	this.color = color;
 	this.borderColor = borderColor;
-  this.img = null;
-  this.mergeTimeLeft = 0;
-  this.parts = [new SlimePart(this, diameter, x, y)];
-  this.lastPosUpdate = Date.now();
+	this.img = null;
+	this.mergeTimeLeft = 0;
+	this.parts = [new SlimePart(game, this, mass, x, y)];
 }
 
-Slime.prototype.updateScore = function()  {
-  let totalMass = this.parts.reduce((total, next) => total + game.getMass(next.diameter), 0);
-  this.score = Math.floor(totalMass);
+Slime.prototype.updateMass = function()  {
+  let totalMass = this.parts.reduce((total, next) => total + next.mass, 0);
+  this.mass = totalMass;
   this.diameterSum = game.getDiameter(totalMass);
 };
 
 Slime.prototype.split = function()  {
   if (this.parts.length < game.maxParts && !this.isSplitting)  {
     this.isSplitting = true;
-    this.mergeTimeLeft = game.mergeTime;
-    this.parts.filter(part => part.score >= game.minSplitMass).forEach(function(part)  {
-      if (this.parts.length < game.maxParts)  {
-        let xLaunchSpeed, yLaunchSpeed;
-        if (part.mouseXfactor == 0 && part.mouseYfactor == 0)  {
-          let angle = Math.random() * Math.PI;
-          xLaunchSpeed = Math.cos(angle) * game.splitSpeed;
-          yLaunchSpeed = Math.sin(angle) * game.splitSpeed;
+    this.mergeTimeLeft = this.game.mergeTime;
+    this.parts.sort((a, b) => b.mass - a.mass).filter(part => part.mass >= this.game.splitMinMass).forEach(function(part)  {
+      if (this.parts.length < this.game.maxParts)  {
+        if (!part.mouseFactor.length)  {
+          let angle = Math.random() * Math.PI*2;
+		  var launch = Vector.fromAngle(angle);
         } else  {
-          xLaunchSpeed = part.mouseXfactor * game.splitSpeed;
-          yLaunchSpeed = part.mouseYfactor * game.splitSpeed;
+          var launch = part.mouseFactor;
         }
-        part.setMass(game.getMass(part.diameter) / 2);
+		launch.length = this.game.splitSpeed;
+        part.setMass(part.mass / 2);
         this.parts.push(new SlimePart(
-          this,
-          part.diameter, part.x, part.y,
-          part.xMove + xLaunchSpeed, part.yMove + yLaunchSpeed,
-          part.xMove, part.yMove));
+			this.game,
+			this,
+			part.mass, part.x.realValue, part.y.realValue,
+			{splitting: launch},
+			part.lastMove)
+		);
       }
     }.bind(this));
     this.isSplitting = false;
@@ -174,70 +306,70 @@ Slime.prototype.split = function()  {
 };
 
 Slime.prototype.ejectMass = function()  {
-  this.parts.filter(part => part.score >= game.minEjectMass).forEach(function(part) {
-    let foodDiameter = Math.sqrt(game.ejectMass / Math.PI * 100) * 2;
-    let x = part.x + ((part.diameter + foodDiameter) / 2) * part.mouseXfactor;
-    let y = part.y + ((part.diameter + foodDiameter) / 2) * part.mouseYfactor;
-    game.ejectedMovingFoods.push(new Food(foodDiameter,
-      this.color, this.borderColor,
-      game.borderWidth,
-      x, y, "auto",
-      part.mouseXfactor * game.ejectSpeed,
-      part.mouseYfactor * game.ejectSpeed
-    ));
-    part.addMass(-game.ejectMassLoss);
-    game.repulsingFoodsCount += 1;
-  }.bind(this));
+	this.parts.filter(part => part.mass >= game.minEjectMass).forEach(function(part) {
+		let x = part.x.realValue + ((part.diameter.realValue + this.game.ejectMass) / 2) * part.mouseFactor.x;
+		let y = part.y.realValue + ((part.diameter.realValue + this.game.ejectMass) / 2) * part.mouseFactor.y;
+		let position = part.mouseFactor.toLength(part.diameter.realValue/2+this.game.borderWidth).add(part.getPositionVector());
+		game.ejectedMovingFoods.push(new Food(this.game, "Ejected food",
+			this.game.ejectMass,
+			this.color, this.borderColor,
+			position.x, position.y, "auto",
+			{ejecting: part.mouseFactor.toLength(this.game.ejectSpeed),
+			 repulsing: new Vector(0, 0)}
+		));
+		part.addMass(-game.ejectMassLoss);
+		game.repulsingFoodsCount += 1;
+	}.bind(this));
 }
 
+//CACTUS
 
-let Cactus = function(diameter, color, borderColor, x, y, xSpeed = null, ySpeed = null)  {
-  this.type = "Cactus";
-  this.diameter = diameter;
-  this.diameterAnimated = new Animated(diameter);
-  this.color = color;
-  this.borderColor = borderColor;
-  this.opacity = new Animated(1);
-  this.x = x;
-  this.y = y;
-  this.xAnimated = new Animated(x);
-  this.yAnimated = new Animated(y);
-  this.xSpeed = 0;
-  this.ySpeed = 0;
-  if (xSpeed != null && ySpeed != null)  {
-    this.xSpeed = xSpeed;
-    this.ySpeed = ySpeed;
-  }
+let Cactus = function(game, mass, color, borderColor, x, y, move)  {
+	GameObject.call(this, game, mass, x, y, move);
+	this.diameter.animate(0, 0);
+	this.diameter.animate(game.getDiameter(mass), 250, easeOut);
+	this.type = "Cactus";
+	this.color = color;
+	this.borderColor = borderColor;
 }
 
-Cactus.prototype.addMass = SlimePart.prototype.addMass;
-Cactus.prototype.setMass = SlimePart.prototype.setMass;
-Cactus.prototype.updateDiameter = SlimePart.prototype.updateDiameter;
+Cactus.prototype = Object.create(GameObject.prototype);
+Object.defineProperty(Cactus.prototype, "constructor", {
+	value: Cactus, enumerable: false, writable: true});
 
-
-let Food = function(diameter, color, borderColor, borderWidth, x, y, kcal = "auto", xSpeed = null, ySpeed = null)		{
-  this.type = "Food";
-  this.diameter = diameter;
-  this.diameterAnimated = new Animated(diameter);
-  this.rotation = Math.random() * 2*Math.PI;
-  if (kcal == "auto")
-    this.kcal = game.getMass(diameter);
-  else if (kcal == "withBorder")
-    this.kcal = game.getMass(diameter + borderWidth * 2);
-  else
-    this.kcal = kcal;
-  this.color = color;
-  this.borderColor = borderColor;
-  this.opacity = new Animated(1);
-  this.x = x;
-  this.y = y;
-  this.xAnimated = new Animated(x);
-  this.yAnimated = new Animated(y);
-  if (xSpeed != null && ySpeed != null)  {
-    this.xSpeed = xSpeed;
-    this.ySpeed = ySpeed;
-  }
+Cactus.prototype.eat = function(food) {
+	this.addMass(food.kcal);
+	this.game.removeSlime(food, this.game.ejectedMovingFoods, this)
+	if (this.mass > this.game.cactusMaxMass)  {
+		this.setMass(this.mass / 2);
+		this.game.cactuses.push(new Cactus(
+			this.game,
+			this.mass,
+			this.color,
+			this.borderColor,
+			this.x.realValue, this.y.realValue,
+			{splitting: food.move.ejecting.toLength(this.game.cactusSplitSpeed)}
+		));
+	}
 }
+
+//FOOD
+
+let Food = function(game, type, mass, color, borderColor, x, y, kcal = "auto", move = {})		{
+	GameObject.call(this, game, mass, x, y, move);
+	this.type = type;
+	if (animal) this.rotation = Math.random() * 2*Math.PI;
+	if (kcal == "auto")
+		this.kcal = mass;
+	else
+		this.kcal = kcal;
+	this.color = color;
+	this.borderColor = borderColor;
+}
+
+Food.prototype = Object.create(GameObject.prototype);
+Object.defineProperty(Cactus.prototype, "constructor", {
+	value: Food, enumerable: false, writable: true});
 
 
 let Canvas = function() {
@@ -263,38 +395,30 @@ Canvas.prototype.clear = function()  {
 }
 
 Canvas.prototype.renderGrid = function()  {
-  let gridSpace = 50;
-  let realLT = this.game.convertCoords(0, 0);
-  let realRB = this.game.convertCoords(this.game.mapWidth, this.game.mapHeight);
-  let strokeWidth = this.game.viewScaleAnimated.value;
-  let strokeColor = "rgba(127, 127, 127, 0.25)";
-
-  for(x = gridSpace / 2; x < this.game.mapWidth; x += gridSpace)  {
-    let realX = this.game.convertCoords(x)[0];
-    this.ctx.beginPath();
-    this.ctx.moveTo(realX, realLT[1]);
-    this.ctx.lineTo(realX, realRB[1]);
-    this.ctx.closePath();
-    this.ctx.lineWidth = strokeWidth;
-    this.ctx.strokeStyle = strokeColor;
-    this.ctx.stroke();
-  }
-  for(y = gridSpace / 2; y < this.game.mapHeight; y += gridSpace)  {
-    let realY = this.game.convertCoords(0, y)[1];
-    this.ctx.beginPath();
-    this.ctx.moveTo(realLT[0], realY);
-    this.ctx.lineTo(realRB[0], realY);
-    this.ctx.closePath();
-    this.ctx.lineWidth = strokeWidth;
-    this.ctx.strokeStyle = strokeColor;
-    this.ctx.stroke();
-  }
+	let gridSpace = 50;
+	let realLT = this.game.convertCoords(0, 0);
+	let realRB = this.game.convertCoords(this.game.mapWidth, this.game.mapHeight);
+	this.ctx.beginPath();
+	for(x = gridSpace / 2; x < this.game.mapWidth; x += gridSpace)  {
+		let realX = this.game.convertCoords(x).x;
+		this.ctx.moveTo(realX, realLT.y);
+		this.ctx.lineTo(realX, realRB.y);
+	}
+	for(y = gridSpace / 2; y < this.game.mapHeight; y += gridSpace)  {
+		let realY = this.game.convertCoords(0, y).y;
+		this.ctx.moveTo(realLT.x, realY);
+		this.ctx.lineTo(realRB.x, realY);
+	}
+	this.ctx.lineWidth = this.game.viewScaleAnimated.value;
+	this.ctx.strokeStyle = "rgba(127, 127, 127, 0.25)";
+	this.ctx.stroke();
 }
 
 Canvas.prototype.drawSlime = function(slime)  {
-  let scrCoords = this.game.convertCoords(slime.xAnimated.value, slime.yAnimated.value);
-  let x = scrCoords[0], y = scrCoords[1], img = slime.parent.img;
-  let diameter = slime.diameterAnimated.value;
+  let scrCoords = this.game.convertCoords(slime.x.value, slime.y.value),
+	  x = scrCoords.x, y = scrCoords.y, img = slime.parent.img,
+	  diameter = slime.diameter.value,
+	  fullDiameter = diameter + this.game.borderWidth*2;
 
   if (diameter > 0)  {
 
@@ -302,11 +426,10 @@ Canvas.prototype.drawSlime = function(slime)  {
     if (img === null)  {
       let fill = new Path2D();
       let border = new Path2D();
-      this.ctx.globalAlpha = slime.opacity;
       this.ctx.lineWidth = this.game.borderWidth * this.game.viewScaleAnimated.value;
       this.ctx.strokeStyle = slime.borderColor;
       this.ctx.fillStyle = slime.color;
-      fill.arc(x, y, (diameter/2 + this.game.borderWidth) * this.game.viewScaleAnimated.value, 0, 2*Math.PI);
+      fill.arc(x, y, fullDiameter/2 * this.game.viewScaleAnimated.value, 0, 2*Math.PI);
       this.ctx.fill(fill);
       border.arc(x, y, (diameter + this.game.borderWidth)/2 * this.game.viewScaleAnimated.value, 0, 2*Math.PI);
       this.ctx.stroke(border);
@@ -314,9 +437,13 @@ Canvas.prototype.drawSlime = function(slime)  {
       //NICKNAME
 
       if (slime.parent.nickname != null)  {
-        nickname = slime.parent.nickname.slice(0, 26);
-        let fontSize = Math.max(0.16 * diameter, 15) * this.game.viewScaleAnimated.value;
-        this.ctx.font = "bold "+fontSize+"px Ubuntu, sans-serif";
+        let nickname = slime.parent.nickname.slice(0, 32),
+			customDiameter = fullDiameter - 10;
+        this.ctx.font = "bold "+1+"px Ubuntu, sans-serif";
+		let fontSize = Math.max(
+			Math.min(customDiameter / this.ctx.measureText(nickname).width, 0.16 * customDiameter), 15
+			) * this.game.viewScaleAnimated.value;
+		this.ctx.font = "bold "+fontSize+"px Ubuntu, sans-serif";
         this.ctx.textAlign = "center";
         this.ctx.textBaseline = "middle";
         this.ctx.strokeStyle = "rgba(0, 0, 0, 1)";
@@ -326,7 +453,6 @@ Canvas.prototype.drawSlime = function(slime)  {
         this.ctx.strokeText(nickname, x, y);
         this.ctx.fillText(nickname, x, y);
       }
-      this.ctx.globalAlpha = 1;
     }
     //CUSTOM IMAGES
     if (img != null)  {
@@ -342,68 +468,77 @@ Canvas.prototype.drawSlime = function(slime)  {
   }
 }
 
-Canvas.prototype.drawFood = function(food)  {
-  let scrCoords = this.game.convertCoords(food.xAnimated.value, food.yAnimated.value);
-  let x = scrCoords[0], y = scrCoords[1];
-  let diameter = food.diameterAnimated.value;
+Canvas.prototype.drawFood = function(food, withBorder = true)  {
+  let scrCoords = this.game.convertCoords(food.x.value, food.y.value),
+	  x = scrCoords.x, y = scrCoords.y,
+	  diameter = food.diameter.value;
 
-  //DEFAULT FOOD
-  if (animal == undefined)  {
-    let fill = new Path2D();
-    let border = new Path2D();
-    this.ctx.globalAlpha = food.opacity.value;
-    this.ctx.lineWidth = this.game.borderWidth * this.game.viewScaleAnimated.value;
-    this.ctx.strokeStyle = food.borderColor;
-    this.ctx.fillStyle = food.color;
-    fill.arc(x, y, (diameter/2 + this.game.borderWidth) * this.game.viewScaleAnimated.value, 0, 2*Math.PI);
-    this.ctx.fill(fill);
-    border.arc(x, y, (diameter + this.game.borderWidth)/2 * this.game.viewScaleAnimated.value, 0, 2*Math.PI);
-    this.ctx.stroke(border);
-    this.ctx.globalAlpha = 1;
-  }
-  //CUSTOM FOOD
-  else if (animal == "dog")  {
-    let scrDiameter = (diameter + this.game.borderWidth * 2) * this.game.viewScaleAnimated.value;
-    this.ctx.save();
-    this.ctx.translate(x, y);
-    this.ctx.rotate(food.rotation);
-    this.ctx.scale(scrDiameter * 1.3, scrDiameter * 1.3);
-    this.ctx.translate(-0.21, -0.5);
+  if (diameter >= 0)	{
 
-    this.ctx.globalAlpha = food.opacity.value;
-    this.ctx.fillStyle = food.color;
-    let fill = new Path2D(bonePath);
-    this.ctx.fill(fill);
-    this.ctx.globalAlpha = 1;
-    this.ctx.restore();
+	  //DEFAULT FOOD
+	  if (animal == undefined)  {
+	    let fill = new Path2D();
+	    let border = new Path2D();
+	    this.ctx.lineWidth = this.game.borderWidth * this.game.viewScaleAnimated.value;
+	    this.ctx.strokeStyle = food.borderColor;
+	    this.ctx.fillStyle = food.color;
+		if (withBorder)	{
+		    fill.arc(x, y, (diameter/2 + this.game.borderWidth) * this.game.viewScaleAnimated.value, 0, 2*Math.PI);
+		    this.ctx.fill(fill);
+		    border.arc(x, y, (diameter + this.game.borderWidth)/2 * this.game.viewScaleAnimated.value, 0, 2*Math.PI);
+		    this.ctx.stroke(border);
+		    this.ctx.globalAlpha = 1;
+		}	else {
+			fill.arc(x, y, diameter/2 * this.game.viewScaleAnimated.value, 0, 2*Math.PI);
+		    this.ctx.fill(fill);
+		}
+	  }
+	  //CUSTOM FOOD
+	  else if (animal == "dog")  {
+	    let scrDiameter = (diameter + this.game.borderWidth * 2) * this.game.viewScaleAnimated.value;
+	    this.ctx.save();
+	    this.ctx.translate(x, y);
+	    this.ctx.rotate(food.rotation);
+	    this.ctx.scale(scrDiameter * 1.3, scrDiameter * 1.3);
+	    this.ctx.translate(-0.21, -0.5);
+
+	    this.ctx.globalAlpha = food.opacity.realValue;
+	    this.ctx.fillStyle = food.color;
+	    let fill = new Path2D(bonePath);
+	    this.ctx.fill(fill);
+	    this.ctx.globalAlpha = 1;
+	    this.ctx.restore();
+	  }
   }
 }
 
 Canvas.prototype.drawCactus = function(cactus)  {
-  let scrCoords = this.game.convertCoords(cactus.xAnimated.value, cactus.yAnimated.value);
-  let x = scrCoords[0], y = scrCoords[1];
-  let diameter = cactus.diameterAnimated.value;
+  let scrCoords = this.game.convertCoords(cactus.x.value, cactus.y.value);
+  let x = scrCoords.x, y = scrCoords.y;
+  let diameter = cactus.diameter.value;
 
-  let fill = new Path2D();
-  let border = new Path2D();
-  this.ctx.globalAlpha = cactus.opacity;
-  this.ctx.lineWidth = this.game.borderWidth * this.game.viewScaleAnimated.value;
-  this.ctx.strokeStyle = cactus.borderColor;
-  this.ctx.fillStyle = cactus.color;
-  let fullRadius = (diameter / 2 + this.game.borderWidth);
-  let spikes = diameter * 0.17;
-  let spikesLength = 10;
-  for (i = 0; i < spikes*2; i++)  {
-    let radian = Math.PI * i / spikes;
-    let radius = (fullRadius + i % 2 * spikesLength) * this.game.viewScaleAnimated.value;
-    let borderRadius = (fullRadius + i % 2 * spikesLength - this.game.borderWidth / 2) * this.game.viewScaleAnimated.value;
-    fill.lineTo(x + Math.cos(radian) * radius, y + Math.sin(radian) * radius);
-    border.lineTo(x + Math.cos(radian) * radius, y + Math.sin(radian) * radius);
-  }
-  fill.closePath();
-  border.closePath();
-  this.ctx.fill(fill);
-  this.ctx.stroke(border);
+  if (diameter >= 0)	{
+	  let fill = new Path2D();
+	  let border = new Path2D();
+	  this.ctx.globalAlpha = cactus.opacity;
+	  this.ctx.lineWidth = this.game.borderWidth * this.game.viewScaleAnimated.value;
+	  this.ctx.strokeStyle = cactus.borderColor;
+	  this.ctx.fillStyle = cactus.color;
+	  let fullRadius = (diameter / 2 + this.game.borderWidth);
+	  let spikes = diameter * 0.17;
+	  let spikesLength = 10;
+	  for (i = 0; i < spikes*2; i++)  {
+	    let radian = Math.PI * i / spikes;
+	    let radius = (fullRadius + i % 2 * spikesLength) * this.game.viewScaleAnimated.value;
+	    let borderRadius = (fullRadius + i % 2 * spikesLength - this.game.borderWidth / 2) * this.game.viewScaleAnimated.value;
+	    fill.lineTo(x + Math.cos(radian) * radius, y + Math.sin(radian) * radius);
+	    border.lineTo(x + Math.cos(radian) * radius, y + Math.sin(radian) * radius);
+	  }
+	  fill.closePath();
+	  border.closePath();
+	  this.ctx.fill(fill);
+	  this.ctx.stroke(border);
+	}
 }
 
 
@@ -411,44 +546,58 @@ let Game = function()  {
 	gameObjInitialized = false;
 
 	//DEFAULT SETTINGS
+
+	//GENERAL
 	this.canvas = canvas;
-	this.frameRate = 60;
+	this.frameRate = 80;
 	this.borderWidth = 7;
-	this.startDiameter = 40;
-	this.maxParts = 16;
-	this.minSplitMass = 60;
-	this.splitSpeed = 15;
-	this.splitSlowness = 0.01;
-	this.mergeTime = 30;
-	this.mergeTimeGrow = 0.08;
-	this.repulsingSpeed = 60;
-	this.minEjectMass = 44 * 2;
-	this.ejectSpeed = 30;
-	this.ejectSlowness = 0.03;
-	this.ejectMassLoss = 44;
-	this.ejectMass = 39;
-	this.foodDiameter = 8;
-	this.foodsPer100sqpx = 0.7;
-	this.foodsSpawnPerSec = 3;
-	this.spawnPreFood = true;
-	this.preFoodPart = 0.5;
-	this.cactusMass = 280;
-	this.cactusMaxMass = 560;
-	this.cactusSplitSpeed = 46;
-	this.cactusSplitSlowness = 0.055;
-	this.cactusesPer100sqpx = 0.0015;
-	this.cactusesSpawnPerSec = 0.2;
-	this.spawnPreCactuses = true;
-	this.preCactusesPart = 1;
-	this.explodeMassFactor = 0.03;
-	this.distanceToEat = 3/5;
-	this.massToEat = 0.75;
+	this.minPartToEat = 3/5;
+	this.minMassToEatFactor = 0.75;
+	this.eatAnimationLength = 200;
 	this.mapWidth = 10000;
 	this.mapHeight = 10000;
 	this.lightBackgroundColor = "hsl(180, 100%, 96%)";
 	this.darkBackgroundColor = "hsl(300, 100%, 4%)";
 	this.letCustomImages = false;
+	//PLAYER
+	this.startMass = 12;
+	this.maxParts = 16;
+	//SPLITTING AND MERGING
+	this.splitMinMass = 60;
+	this.splitSpeed = 15;
+	this.splitSpeedSlowness = 0.14;
+	this.repulsingSpeed = 10;
+	this.mergeTime = 30;
+	this.mergeTimeGrow = 0.08;
+	//EJECTING MASS
+	this.minEjectMass = 120;
+	this.ejectSpeed = 17;
+	this.ejectedSlowness = 0.2;
+	this.ejectMassLoss = 44;
+	this.ejectMass = 39;
+	//FOOD
+	this.foodMass = 3.8;
+	this.foodKcal = 2;
+	this.foodPer100sqpx = 0.3;
+	this.foodSpawnPerSecond = 3;
+	this.foodPreSpawn = true;
+	this.foodPreSpawnPart = 0.6;
+	//CACTUSES
+	this.cactusMass = 280;
+	this.cactusMaxMass = 560;
+	this.cactusSplitSpeed = 32;
+	this.cactusSplitSpeedSlowness = 0.5;
+	this.cactusesPer100sqpx = 0.0015;
+	this.cactusesSpawnPerSec = 0.2;
+	this.cactusesPreSpawn = true;
+	this.cactusesPreSpawnPart = 1;
+	//EXPLODING
+	this.explodeSpeed = 15;
+	this.explodeTotalMassFactor = 0.65;
+	this.explodeMassMin = 40;
+	this.explodeMassMaxFactor = 0.6
 
+	//INNER PROPERTIES
 	this.noFoodSpawningTime = 0;
 	this.noCactusSpawningTime = 0;
 	this.repulsingFoodsCount;
@@ -465,17 +614,24 @@ let Game = function()  {
 	this.removedSlimes = [];
 	let playerColor = randNum(0, 360);
 	this.player = new Slime(
-	            this.startDiameter,
-	            "hsl("+playerColor+", 100%, 50%)",
-	            "hsl("+playerColor+", 100%, 40%)",
-	            this.mapWidth / 2,
-	            this.mapHeight / 2);
+		this,
+        this.startMass,
+        "hsl("+playerColor+", 100%, 50%)",
+        "hsl("+playerColor+", 100%, 40%)",
+        this.mapWidth / 2,
+        this.mapHeight / 2
+	);
 
 	let mouseC = this.convertCoords(this.mapWidth / 2, this.mapHeight / 2);
-	this.mouseX = mouseC[0];
-	this.mouseY = mouseC[1];
+	this.mouse = new Vector(mouseC.x, mouseC.y);
 
 	gameObjInitialized = true;
+}
+
+//GAME ALL-PURPOSE FUNCTIONS
+
+Game.prototype.setMousePosition = function(x, y)	{
+	this.mouse = new Vector(x, y);
 }
 
 Game.prototype.convertCoords = function(x, y)  {
@@ -483,8 +639,22 @@ Game.prototype.convertCoords = function(x, y)  {
   let camTop = this.camYanimated.value - this.canvas.height / 2 / this.viewScaleAnimated.value;
   let canvasX = (x - camLeft) * this.viewScaleAnimated.value;
   let canvasY = (y - camTop) * this.viewScaleAnimated.value;
-  return [canvasX, canvasY];
+  return {x: canvasX, y: canvasY};
 };
+
+Game.prototype.isOnScreen = function(object)  {
+	let canvasCoords = this.convertCoords(object.x.value, object.y.value);
+	if (object.type == "Food")	{
+		var radius = object.diameter.value / 2 * this.viewScaleAnimated.value;
+	}	else if (object.type == "Ejected food") {
+		var radius = (object.diameter.value / 2 + this.borderWidth) * this.viewScaleAnimated.value;
+	}	else if (object.type == "Cactus") {
+		var radius = (object.diameter.value / 2 + this.borderWidth + 10) * this.viewScaleAnimated.value;
+	}
+
+	return canvasCoords.x > 0 - radius && canvasCoords.x < this.canvas.width + radius
+		&& canvasCoords.y > 0 - radius && canvasCoords.y < this.canvas.height + radius;
+}
 
 Game.prototype.getMass = function(diameter)  {
   return Math.pow(diameter / 2, 2) * Math.PI / 100;
@@ -498,108 +668,161 @@ Game.prototype.getDistance = function(x1, y1, x2, y2)  {
   return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
 }
 
+Game.prototype.getDistanceObj = function(obj1, obj2, animated = false) {
+	if (animated)	{
+		return Math.sqrt(Math.pow(obj2.x.value - obj1.x.value, 2) + Math.pow(obj2.y.value - obj1.y.value, 2));
+	}	else {
+		return Math.sqrt(Math.pow(obj2.x.realValue - obj1.x.realValue, 2) + Math.pow(obj2.y.realValue - obj1.y.realValue, 2));
+	}
+}
+
 Game.prototype.getDistanceBetween = function(distance, diameter1, diameter2)  {
   return distance - (diameter1 + diameter2 + this.borderWidth*4) / 2;
 }
 
-Game.prototype.moveObject = function(object, diffX, diffY, animationTime = 0)  {
-  object.x += diffX;
-  object.y += diffY;
-  object.xAnimated.animate(object.x, animationTime);
-  object.yAnimated.animate(object.y, animationTime);
+Game.prototype.getDistanceBetweenObj = function(object1, object2, animated = false) {
+	let distance = this.getDistanceObj(object1, object2, animated),
+		diameters,
+		borders = this.borderWidth * [object1, object2].filter(object => object.type != "Food").length;
+	if (animated)	{
+		diameters = object1.diameter.value + object2.diameter.value;
+	} else {
+		diameters = object1.diameter.realValue + object2.diameter.realValue;
+	}
+	return distance - (diameters / 2 + borders);
 }
+
+Game.prototype.moveObject = function(object, diffX, diffY, animationTime = 0)  {
+  object.x.animate(object.x.realValue + diffX, animationTime);
+  object.y.animate(object.y.realValue + diffY, animationTime);
+}
+
+Game.prototype.moveObjectTo = function(object, x, y, animationTime = 0)  {
+  object.x.animate(x, animationTime);
+  object.y.animate(y, animationTime);
+}
+
+Game.prototype.moveInsideBorder = function(object)  {
+	let position = object.getPositionVector();
+	let newX = position.x < 0 ? 0 : position.x > this.mapWidth ? this.mapWidth : position.x;
+	let newY = position.y < 0 ? 0 : position.y > this.mapHeight ? this.mapHeight : position.y;
+	this.moveObjectTo(object, newX, newY);
+	//BOUNCING OF THE EDGES OR STOPPING
+	if (newX == 0 || newX == this.mapWidth)  {
+		if (object.move.ejecting) {
+			object.move.ejecting.angle = Math.PI - object.move.ejecting.angle;
+			object.move.ejecting.length *= 0.6;
+		}
+		if (object.type == "Cactus") {
+			object.move.splitting.angle = Math.PI - object.move.splitting.angle;
+			object.move.splitting.length *= 0.6;
+		} else if (object.move.splitting) {
+			object.move.splitting.length = 0;
+		}
+	}
+	if (newY == 0 || newY == this.mapHeight) {
+		if (object.move.ejecting) {
+			object.move.ejecting.angle = Math.PI*2 - object.move.ejecting.angle;
+			object.move.ejecting.length *= 0.6;
+		}
+		if (object.type == "Cactus") {
+			object.move.splitting.angle = Math.PI*2 - object.move.splitting.angle;
+			object.move.splitting.length *= 0.6;
+		} else if (object.move.splitting) {
+			object.move.splitting.length = 0;
+		}
+	}
+};
 
 Game.prototype.spawnFood = function()  {
   let x = randNum(0, this.mapWidth);
   let y = randNum(0, this.mapHeight);
   let hue = randNum(0, 360);
   let color = "hsl("+hue+", 100%, 50%)";
-  this.foods.push(new Food(this.foodDiameter, color, color, this.borderWidth, x, y, 2));
+  this.foods.push(new Food(this, "Food", this.foodMass, color, color, x, y, this.foodKcal));
 };
 
 Game.prototype.spawnCactus = function()  {
+	//TO DO
   let x, y, valid, diameter = this.getDiameter(this.cactusMass), i = 0;
   do {
     x = randNum(0, this.mapWidth);
     y = randNum(0, this.mapHeight);
     valid = this.player.parts.every(function(part) {
       return this.getDistanceBetween(
-        this.getDistance(part.x, part.y, x, y),
+        this.getDistance(part.x.realValue, part.y.realValue, x, y),
         part.diameter, diameter) > 200;
     }.bind(this));
     i++;
-  }  while (!valid && i < 1000)
+  }  while (!valid && i < 100)
   let color = "hsl(108, 100%, 50%)";
   let borderColor = "hsl(108, 100%, 40%)";
-  this.cactuses.push(new Cactus(diameter, color, borderColor, x, y));
+  this.cactuses.push(new Cactus(this, this.getMass(diameter), color, borderColor, x, y));
 };
 
 Game.prototype.clearOutsideElements = function()  {
   [this.foods, this.ejectedFoods, this.ejectedMovingFoods, this.cactuses].forEach(function(elements)  {
     elements = elements.filter(element =>
-      (element.x <= this.mapWidth && element.x >= 0) && (element.y <= this.mapHeight && element.y >= 0)
+      (element.x.realValue <= this.mapWidth && element.x.realValue >= 0) && (element.y.realValue <= this.mapHeight && element.y.realValue >= 0)
     );
   });
 };
 
-Game.prototype.moveInsideBorder = function(object)  {
-  let newX = object.x < 0 ? 0 : object.x > this.mapWidth ? this.mapWidth : object.x;
-  let newY = object.y < 0 ? 0 : object.y > this.mapHeight ? this.mapHeight : object.y;
-  this.moveObject(object, newX - object.x, newY - object.y);
-  if (object.x == 0 || object.x == this.mapWidth)  {
-    if (object.xSpeed != undefined)
-      object.xSpeed = 0;
-    if (object.xExtraSpeed != undefined)
-      object.xExtraSpeed = 0;
-  }
-  if (object.y == 0 || object.y == this.mapWidth)  {
-    if (object.ySpeed != undefined)
-      object.ySpeed = 0;
-    if (object.yExtraSpeed != undefined)
-      object.yExtraSpeed = 0;
-  }
+Game.prototype.setRepulsingMoves = function(object1, object2)  {
+	object1X = object1.x.realValue + object1.move.repulsing.x;
+	object1Y = object1.y.realValue + object1.move.repulsing.y;
+	object2X = object2.x.realValue + object2.move.repulsing.x;
+	object2Y = object2.y.realValue + object2.move.repulsing.y;
+	let distance = this.getDistance(object1X, object1Y, object2X, object2Y),
+		distanceBetween = this.getDistanceBetween(distance, object1.diameter.value, object2.diameter.value);
+	var splitting = false;
+	if (object1.move && object1.move.splitting)	{
+		var splitting = object1.move.splitting.length > 1;
+	}
+	if (object2.move && object2.move.splitting) {
+		var splitting = splitting || object2.move.splitting.length > 1;
+	}
+
+	if (distanceBetween < 0 && distance != 0
+		&& !splitting)  {
+		let factor = object1.getPositionVector().subtract(object2.getPositionVector()).toFactor(),
+			change = factor.toLength(this.lastRenderTicks * this.repulsingSpeed),
+			object1Speed = object1.speed || 1,
+			object2Speed = object2.speed || 1,
+			totalSpeed = object1Speed + object2Speed;
+		if (change.length > -distanceBetween) {
+			change.length = -distanceBetween;
+		}
+		let object1Change = factor.toLength(change.length * object1Speed / totalSpeed);
+			object2Change = factor.toLength(-change.length * object2Speed / totalSpeed);
+		object1.move.repulsing.add(object1Change);
+		object2.move.repulsing.add(object2Change);
+		}
+	this.moveInsideBorder(object1);
+	this.moveInsideBorder(object2);
 };
 
-Game.prototype.repulse = function(part, otherPart, timeDifference)  {
-  let distance = this.getDistance(part.x, part.y, otherPart.x, otherPart.y);
-  let distanceBetween = this.getDistanceBetween(distance, part.diameter, otherPart.diameter);
-  if (distanceBetween < 0 && distance != 0)  {
-    let xFactor = (part.x - otherPart.x) / distance;
-    let yFactor = (part.y - otherPart.y) / distance;
-    let xDifference = xFactor * (-distanceBetween);
-    let yDifference = yFactor * (-distanceBetween);
-    let xChange = timeDifference / 100 * xFactor * this.repulsingSpeed;
-    let yChange = timeDifference / 100 * yFactor * this.repulsingSpeed;
-    if (Math.abs(xChange) > Math.abs(xDifference) || Math.abs(yChange) > Math.abs(yDifference))  {
-      xChange = xDifference;
-      yChange = yDifference;
-    }
-    if (part.speed == undefined)  {
-      part.speed = 1;
-    }
-    if (otherPart.speed == undefined)  {
-      otherPart.speed = 1;
-    }
-    let totalSpeed = part.speed + otherPart.speed;
-    part.x += xChange * part.speed / totalSpeed;
-    part.y += yChange * part.speed / totalSpeed;
-    otherPart.x -= xChange * otherPart.speed / totalSpeed;
-    otherPart.y -= yChange * otherPart.speed / totalSpeed;
-  }
-  this.moveInsideBorder(part);
-  this.moveInsideBorder(otherPart);
-};
+Game.prototype.getHiddenChildParentRadius = function(child, parent) {
+	return Math.max(
+		(parent.diameter.value / 2 + this.borderWidth)
+		- (child.diameter.value / 2 + this.borderWidth + 2), 0);
+}
+
+Game.prototype.getToBorderVector = function(child, parent)	{
+	let targetRadius = this.getHiddenChildParentRadius(child, parent),
+		diffTargetVector =
+		new Vector(parent.x.value, parent.y.value)
+		.subtract(child.x.value, child.y.value);
+	diffTargetVector.length -= targetRadius;
+	return diffTargetVector;
+}
 
 Game.prototype.removeSlime = function(slime, parentArray, eatenBy = undefined)  {
   if (eatenBy != undefined)  {
     this.removedSlimes.push(slime);
-    let distance = Math.sqrt(Math.pow(slime.x - eatenBy.x, 2) + Math.pow(slime.y - eatenBy.y, 2));
-    let x = eatenBy.x + (slime.x - eatenBy.x) / distance * Math.max((eatenBy.diameter / 2 - slime.diameter * 2), 0);
-    let y = eatenBy.y + (slime.y - eatenBy.y) / distance * Math.max((eatenBy.diameter / 2 - slime.diameter * 2), 0);
-    slime.xAnimated.animate(x, 200, easeIn);
-    slime.yAnimated.animate(y, 200, easeIn);
-    slime.opacity.animate(0, 150, easeIn);
-    slime.diameterAnimated.animate(0, 150, easeIn);
+	slime.eatenBy = eatenBy;
+	slime.eatenByDistance = this.getToBorderVector(slime, eatenBy).length;
+	slime.diameterOriginal = slime.diameter.realValue;
   }
   let index = parentArray.indexOf(slime);
   parentArray.splice(index, 1);
@@ -616,10 +839,10 @@ let animal;
 //INITIALIZE AND RENDER
 
 Game.prototype.initialize = function()  {
-  for(let i = 0; i < this.mapWidth*this.mapHeight/10000 * this.foodsPer100sqpx * this.preFoodPart; i++)  {
+  for(let i = 0; i < this.mapWidth*this.mapHeight/10000 * this.foodPer100sqpx * this.foodPreSpawnPart; i++)  {
     this.spawnFood();
   }
-  for(let i = 0; i < this.mapWidth*this.mapHeight/10000 * this.cactusesPer100sqpx * this.preCactusesPart; i++)  {
+  for(let i = 0; i < this.mapWidth*this.mapHeight/10000 * this.cactusesPer100sqpx * this.cactusesPreSpawnPart; i++)  {
     this.spawnCactus();
   }
   canvas.game = this;
@@ -635,7 +858,8 @@ Game.prototype.initialize = function()  {
     }
   }
 
-  this.latestRenderTime = Date.now();
+  this.lastRenderTime = Date.now();
+  this.lastRenderTicks = 0;
   this.render();
 }
 
@@ -645,7 +869,7 @@ Game.prototype.pause = function()  {
 
 Game.prototype.resume = function()  {
 	this.paused = false;
-	this.player.lastPosUpdate = Date.now();
+	this.lastRenderTime = Date.now();
 	this.render();
 }
 
@@ -655,120 +879,85 @@ Game.prototype.render = function()	{
 		return 0;
 	}
 	let startTime = Date.now();
+	this.lastRenderTimespan = startTime - this.lastRenderTime;
+	this.lastRenderTimespan = this.lastRenderTimespan != 0 ? this.lastRenderTimespan : 1;
+	this.lastRenderTicks = this.lastRenderTimespan / 16.66666666666;
+	this.lastRenderTime = startTime;
 
 
 	//SPAWN FOODS
 	{
-	this.noFoodSpawningTime += startTime - this.latestRenderTime;
+	this.noFoodSpawningTime += this.lastRenderTimespan;
 	let nfst = this.noFoodSpawningTime / 1000;
-	let interval = 1 / this.foodsSpawnPerSec;
-	if (nfst > interval)  {
-	  while(nfst > interval)  {
-	    if (this.foods.length < this.mapWidth*this.mapHeight / (100*100) * this.foodsPer100sqpx)  {
-	      this.spawnFood();
-	    }
-	    this.noFoodSpawningTime -= interval * 1000;
-	    nfst = this.noFoodSpawningTime / 1000;
-	  }
+	let interval = 1 / this.foodSpawnPerSecond;
+	while(nfst > interval)  {
+		if (this.foods.length < this.mapWidth*this.mapHeight / (100*100) * this.foodPer100sqpx)  {
+		  this.spawnFood();
+		}
+	this.noFoodSpawningTime -= interval * 1000;
+	nfst = this.noFoodSpawningTime / 1000;
 	}
 	}
 
 
 	//SPAWN CACTUSES
 	{
-	this.noCactusSpawningTime += startTime - this.latestRenderTime;
+	this.noCactusSpawningTime += this.lastRenderTimespan;
 	let ncst = this.noCactusSpawningTime / 1000;
 	let interval = 1 / this.cactusesSpawnPerSec;
-	if (ncst > interval)  {
-	  while(ncst > interval)  {
-	    if (this.cactuses.length < this.mapWidth*this.mapHeight / (100*100) * this.cactusesPer100sqpx)  {
-	      this.spawnCactus();
-	    }
-	    this.noCactusSpawningTime -= interval * 1000;
-	    ncst = this.noCactusSpawningTime / 1000;
-	  }
+	while(ncst > interval)  {
+		if (this.cactuses.length < this.mapWidth*this.mapHeight / (100*100) * this.cactusesPer100sqpx)  {
+		  this.spawnCactus();
+		}
+	this.noCactusSpawningTime -= interval * 1000;
+	ncst = this.noCactusSpawningTime / 1000;
 	}
 	}
-
-	//REMOVE REMOVED SLIMES
-	this.removedSlimes.forEach(function(slime)  {
-	if (slime.opacity.value == 0)  {
-	  this.removedSlimes.splice(this.removedSlimes.indexOf(slime), 1);
-	}
-	}.bind(this));
 
 	//UPDATE PLAYER POSITIONS
 
-	let tempLastPosUpdate = Date.now(), timeDifference = tempLastPosUpdate - this.player.lastPosUpdate;
-	{
 	this.player.parts.forEach(function(part) {
+		part.previousPosition = part.getPositionVector();
 
-	  let partCanvasCoords = this.convertCoords(part.x, part.y);
-	  let mouseXoffset = this.mouseX - partCanvasCoords[0];
-	  let mouseYoffset = this.mouseY - partCanvasCoords[1];
-	  let minSize = Math.min(this.canvas.width, this.canvas.height);
-	  let preDistance = Math.sqrt(Math.pow(mouseXoffset, 2) + Math.pow(mouseYoffset, 2)) / minSize;
-	  if (preDistance == 0 || preDistance == NaN)  {
-	    preDistance = 1;
-	  }
-	  let distance = preDistance < 0.1 ? 0.1 * minSize : preDistance * minSize;
-	  part.mouseXfactor = mouseXoffset / (preDistance * minSize);
-	  part.mouseYfactor = mouseYoffset / (preDistance * minSize);
+		//EXTRA SPEED SLOWNESS
 
+		var move = part.slowDownMove("splitting", this.splitSpeedSlowness);
+		this.moveObject(part, move.x, move.y);
 
-	  if (preDistance > 0.02)  {
-	    part.xMove = (mouseXoffset / distance) * part.speed * timeDifference / 15;
-	    part.yMove = (mouseYoffset / distance) * part.speed * timeDifference / 15;
+		//MOVING PARTS BY MOUSE
 
-	    this.moveObject(
-	      part,
-	      part.xMove + part.xExtraSpeed * timeDifference / 30,
-	      part.yMove + part.yExtraSpeed * timeDifference / 30
-	    );
-	  }
-	  else  {
-	    this.moveObject(
-	      part,
-	      part.xExtraSpeed * timeDifference / 30,
-	      part.yExtraSpeed * timeDifference / 30
-	    )
-	  }
-
-	  let esDistance = Math.sqrt(Math.pow(part.xExtraSpeed, 2) + Math.pow(part.yExtraSpeed, 2))
-
-	  if (part.xExtraSpeed > 0)        part.xExtraSpeed = Math.max(part.xExtraSpeed - (part.xExtraSpeed / esDistance * timeDifference * game.splitSlowness), 0);
-	  else if (part.xExtraSpeed < 0)   part.xExtraSpeed = Math.min(part.xExtraSpeed - (part.xExtraSpeed / esDistance * timeDifference * game.splitSlowness), 0);
-
-	  if (part.yExtraSpeed > 0)        part.yExtraSpeed = Math.max(part.yExtraSpeed - (part.yExtraSpeed / esDistance * timeDifference * game.splitSlowness), 0);
-	  else if (part.yExtraSpeed < 0)   part.yExtraSpeed = Math.min(part.yExtraSpeed - (part.yExtraSpeed / esDistance * timeDifference * game.splitSlowness), 0);
-
-	  let xBefore = part.x;
-	  let yBefore = part.y;
-
-	  this.moveInsideBorder(part);
-
-	  part.xMove += xBefore - part.x;
-	  part.yMove += yBefore - part.y;
+		let canvasPosition = this.convertCoords(part.x.value, part.y.value),
+			mouseFactor = this.mouse.copy().subtract(canvasPosition),
+			minCanvasSize = Math.min(this.canvas.width, this.canvas.height),
+			partMove = mouseFactor.copy();
+		mouseFactor.length /= minCanvasSize;
+		if (mouseFactor.length < 0.02) {
+			partMove.length = 0;
+		} else {
+			partMove.length = Math.min((mouseFactor.length - 0.02) / 0.05, 1) * part.speed * this.lastRenderTicks;
+		}
+		part.mouseFactor = partMove.copy().toFactor();
+		this.moveObject(part, partMove.x, partMove.y);
+		this.moveInsideBorder(part);
 
 	}.bind(this));
 
 	//PARTS MERGING
 
 	let mergeDone = false;
-	this.player.mergeTimeLeft -= timeDifference / 1000;
-	let mergingParts = this.player.parts.filter(part => this.player.mergeTimeLeft + part.diameter * this.mergeTimeGrow <= 0)
-	                                    .sort((a, b) => b.diameter - a.diameter);
+	this.player.mergeTimeLeft -= this.lastRenderTimespan / 1000;
+	let mergingParts = this.player.parts.filter(part => this.player.mergeTimeLeft + part.diameter.realValue * this.mergeTimeGrow <= 0)
+	                                    .sort((a, b) => b.diameter.realValue - a.diameter.realValue);
 	let tempMergingParts = [...mergingParts];
 
 	while  (tempMergingParts.length > 1)  {
 	  part = tempMergingParts[0];
-	  toMergeParts = tempMergingParts.filter(otherPart => part != otherPart && otherPart.diameter <= part.diameter)
+	  toMergeParts = tempMergingParts.filter(otherPart => part != otherPart && otherPart.diameter.realValue <= part.diameter.realValue)
 	  .filter(function(otherPart)  {
-	    let distance = this.getDistance(part.x, part.y, otherPart.x, otherPart.y);
-	    let distanceBetween = this.getDistanceBetween(distance, part.diameter, otherPart.diameter);
-	    return -distanceBetween > otherPart.diameter * this.distanceToEat;
+	    let distanceBetween = this.getDistanceBetweenObj(part, otherPart);
+	    return -distanceBetween > otherPart.diameter.realValue * this.minPartToEat;
 	  }.bind(this)).forEach(function(otherPart)  {
-	    part.addMass(this.getMass(otherPart.diameter));
+	    part.addMass(otherPart.mass);
 	    tempMergingParts.splice(tempMergingParts.indexOf(otherPart));
 	    this.removeSlime(otherPart, this.player.parts, part);
 	    mergeDone = true;
@@ -783,136 +972,153 @@ Game.prototype.render = function()	{
 	.forEach(function(part)  {
 	  this.player.parts.filter(otherPart => part != otherPart)
 	  .forEach(function(otherPart)  {
-	    this.repulse(part, otherPart, timeDifference);
+	    this.setRepulsingMoves(part, otherPart);
 	  }.bind(this));
+	}.bind(this));
+
+	this.player.parts.forEach(function(part) {
+		if (part.move.repulsing && part.move.repulsing.length > 0) {
+			this.moveObject(part, part.move.repulsing.x, part.move.repulsing.y)
+			part.move.repulsing.length = 0;
+		}
 	}.bind(this));
 
 	if (this.repulsingFoodsCount !== 0 || this.ejectedMovingFoods.length > 0)  {
 	  let ejectedFoods = [...this.ejectedFoods, ...this.ejectedMovingFoods];
 	  this.repulsingFoodsCount = 0;
 	  ejectedFoods.forEach(function(ejectedFood)  {
-	    ejectedFoods.filter(otherEjectedFood => otherEjectedFood != ejectedFood).forEach(function(otherEjectedFood)  {
-	      let distance = this.getDistance(ejectedFood.x, ejectedFood.y, otherEjectedFood.x, otherEjectedFood.y);
-	      if (this.getDistanceBetween(distance, ejectedFood.diameter, otherEjectedFood.diameter) < -1)  {
-	        this.repulse(ejectedFood, otherEjectedFood, timeDifference);
+	    ejectedFoods.forEach(function(otherEjectedFood)  {
+	      if (otherEjectedFood != ejectedFood && this.getDistanceBetweenObj(ejectedFood, otherEjectedFood) < -1)  {
+	        this.setRepulsingMoves(ejectedFood, otherEjectedFood);
+			this.moveObject(ejectedFood, ejectedFood.move.repulsing.x, ejectedFood.move.repulsing.y);
+			ejectedFood.move.repulsing.length = 0;
 	        this.repulsingFoodsCount += 1;
 	      }
 	    }.bind(this));
 	  }.bind(this));
 	}
 
+	//UPDATE MOVE INDICATORS
+
+	this.player.parts.forEach(function(part) {
+		part.lastMove = part.getPositionVector().subtract(part.previousPosition);
+	});
+
 	//CAMERA MOVE
 
-	this.camX = this.player.parts.reduce((total, next) => total + next.x, 0) / this.player.parts.length;
-	this.camY = this.player.parts.reduce((total, next) => total + next.y, 0) / this.player.parts.length;
+	let newCamX = this.player.parts.reduce((total, next) => total + next.x.realValue, 0) / this.player.parts.length,
+		newCamY = this.player.parts.reduce((total, next) => total + next.y.realValue, 0) / this.player.parts.length;
 
+	if (isNaN(newCamX) || isNaN(newCamY))	{
+		newCamX = this.camXanimated.realValue;
+		newCamY = this.camYanimated.realValue;
+	}
 	if (mergeDone)  {
-	  this.camXanimated.animate(this.camX, 500, easeOut);
-	  this.camYanimated.animate(this.camY, 500, easeOut);
+		this.camXanimated.animate(newCamX, 500, easeOut);
+		this.camYanimated.animate(newCamY, 500, easeOut);
 	}
 	else  {
-	  this.camXanimated.animate(this.camX, 0, linear);
-	  this.camYanimated.animate(this.camY, 0, linear);
+		this.camXanimated.animate(newCamX, 0, linear);
+		this.camYanimated.animate(newCamY, 0, linear);
 	}
 
-	this.player.lastPosUpdate = tempLastPosUpdate;
-
-
+	//UPDATE VIEW SCALE
+	{
+	let minSize = Math.min(this.canvas.styleWidth, this.canvas.styleHeight),
+		size = minSize,
+		diameter = this.player.diameterSum;
+	/*MULTIPLAYER MODE: size = 1000;*/
+	let newViewScale = minSize / (diameter + Math.pow(size/1000, 0.4) * 400) * 0.6 * this.canvas.ratio
+	* Math.pow(0.93, Math.log(this.player.parts.length));
+	newViewScale = isNaN(newViewScale) ? this.viewScaleAnimated.realValue : newViewScale;
+	if (newViewScale != this.viewScale)  {
+		this.viewScale = newViewScale;
+		this.viewScaleAnimated.animate(this.viewScale, 700, easeOut);
+	}
 	}
 
 	//MOVING FOODS AND CACTUSES
 
-	[...this.ejectedMovingFoods, ...this.cactuses].forEach(function(movingObject)  {
-	if (movingObject.xSpeed != 0 || movingObject.ySpeed != 0)  {
-	  this.moveObject(
-	    movingObject,
-	    movingObject.xSpeed * timeDifference / 30,
-	    movingObject.ySpeed * timeDifference / 30
-	  );
+	this.ejectedMovingFoods.forEach(function(ejectedFood) {
+		let move = ejectedFood.slowDownMove("ejecting", this.ejectedSlowness);
+		this.moveObject(ejectedFood, move.x, move.y);
+		this.moveInsideBorder(ejectedFood);
+	}.bind(this));
 
-	  let slowness = movingObject.type == "Cactus" ? this.cactusSplitSlowness : this.ejectSlowness;
-
-	  let esDistance = Math.sqrt(Math.pow(movingObject.xSpeed, 2) + Math.pow(movingObject.ySpeed, 2))
-
-	  if (movingObject.xSpeed > 0)        movingObject.xSpeed = Math.max(movingObject.xSpeed - (movingObject.xSpeed / esDistance * timeDifference * slowness), 0);
-	  else if (movingObject.xSpeed < 0)   movingObject.xSpeed = Math.min(movingObject.xSpeed - (movingObject.xSpeed / esDistance * timeDifference * slowness), 0);
-
-	  if (movingObject.ySpeed > 0)        movingObject.ySpeed = Math.max(movingObject.ySpeed - (movingObject.ySpeed / esDistance * timeDifference * slowness), 0);
-	  else if (movingObject.ySpeed < 0)   movingObject.ySpeed = Math.min(movingObject.ySpeed - (movingObject.ySpeed / esDistance * timeDifference * slowness), 0);
-
-	  this.moveInsideBorder(movingObject);
-
-	  if (movingObject.xSpeed == 0 && movingObject.ySpeed == 0 && this.ejectedMovingFoods.indexOf(movingObject) != -1)  {
-	    this.ejectedFoods.push(movingObject);
-	    this.ejectedMovingFoods.splice(this.ejectedMovingFoods.indexOf(movingObject), 1);
-	  }
-	}
+	this.cactuses.forEach(function(cactus) {
+		let move = cactus.slowDownMove("splitting", this.cactusSplitSpeedSlowness);
+		this.moveObject(cactus, move.x, move.y);
+		this.moveInsideBorder(cactus);
 	}.bind(this));
 
 
 	//EATING FOODS
 
 	this.player.parts.forEach(function(part) {
-	[...this.foods, ...this.ejectedFoods, ...this.ejectedMovingFoods].filter(function(food)  {
-	  let partRadius = part.diameter / 2 + this.borderWidth;
-	  let distance = Math.sqrt(
-	    Math.pow(Math.abs(food.x - part.x), 2) +
-	    Math.pow(Math.abs(food.y - part.y), 2));
-	  return distance < partRadius + food.diameter / 2 - food.diameter * this.distanceToEat;
-	}.bind(this)).forEach(function(food)  {
-	  part.addMass(food.kcal);
-	  let index;
-	  let parentArray = [this.foods, this.ejectedFoods, this.ejectedMovingFoods].find(array => (index = array.indexOf(food)) != -1);
-	  this.removeSlime(food, parentArray, part);
+		[this.foods, this.ejectedFoods, this.ejectedMovingFoods].forEach(function(foodArray) {
+			foodArray.forEach(function(food) {
+				let distanceBetween = this.getDistanceBetweenObj(part, food);
+				if (-distanceBetween > food.diameter.realValue * this.minPartToEat) {
+					part.addMass(food.kcal);
+					this.removeSlime(food, foodArray, part);
+				}
+			}.bind(this));
+		}.bind(this));
 	}.bind(this));
-	}.bind(this));
-
-	this.player.parts.sort((a, b) => a.diameter - b.diameter);
-	this.player.updateScore();
 
 
 	//EATING CACTUSES
 
 	this.player.parts.forEach(function(part)  {
-	this.cactuses.forEach(function(cactus)  {
-	  let distance = this.getDistance(part.x, part.y, cactus.x, cactus.y);
-	  let distanceBetween = this.getDistanceBetween(distance, part.diameter, cactus.diameter);
-	  if (
-	    -distanceBetween > cactus.diameter * this.distanceToEat
-	    && this.getMass(cactus.diameter) < this.getMass(part.diameter) * this.massToEat
-	  )  {
-	    part.explode(this.getMass(cactus.diameter));
-	    this.removeSlime(cactus, this.cactuses, part);
-	  }
-	}.bind(this));
+		this.cactuses.forEach(function(cactus)  {
+		  let distanceBetween = this.getDistanceBetweenObj(part, cactus);
+		  if (
+		    -distanceBetween > cactus.diameter.realValue * this.minPartToEat
+		    && cactus.mass < part.mass * this.minMassToEatFactor
+		  )  {
+		    part.explode(cactus.mass);
+		    this.removeSlime(cactus, this.cactuses, part);
+		  }
+		}.bind(this));
 	}.bind(this));
 
+	this.player.updateMass();
 
 	//CACTUSES EATING FOODS
 
 	this.cactuses.forEach(function(cactus)  {
-	this.ejectedMovingFoods.forEach(function(ejectedFood)  {
-	  let distanceBetween = this.getDistanceBetween(
-	    this.getDistance(cactus.x, cactus.y, ejectedFood.x, ejectedFood.y),
-	    cactus.diameter, ejectedFood.diameter
-	  );
-	  if (-distanceBetween > ejectedFood.diameter * this.distanceToEat)  {
-	    cactus.addMass(ejectedFood.kcal);
-	    this.removeSlime(ejectedFood, this.ejectedMovingFoods, cactus)
-	    if (this.getMass(cactus.diameter) > this.cactusMaxMass)  {
-	      let speed = this.getDistance(0, 0, ejectedFood.xSpeed, ejectedFood.ySpeed);
-	      cactus.setMass(this.getMass(cactus.diameter) / 2);
-	      this.cactuses.push(new Cactus(
-	        cactus.diameter,
-	        cactus.color,
-	        cactus.borderColor,
-	        cactus.x, cactus.y,
-	        ejectedFood.xSpeed / speed * this.cactusSplitSpeed,
-	        ejectedFood.ySpeed / speed * this.cactusSplitSpeed
-	      ));
-	    }
-	  }
+		this.ejectedMovingFoods.forEach(function(ejectedFood)  {
+			let distanceBetween = this.getDistanceBetweenObj(cactus, ejectedFood);
+			if (-distanceBetween > ejectedFood.diameter.realValue * this.minPartToEat)  {
+				cactus.eat(ejectedFood);
+			}
+		}.bind(this));
 	}.bind(this));
+
+
+	//UPDATE REMOVED SLIME POSITIONS AND REMOVE NOT SEEN
+
+	this.removedSlimes.forEach(function(rmSlime) {
+		let eatenBy = rmSlime.eatenBy,
+			diff = this.getToBorderVector(rmSlime, eatenBy),
+			rmSlimeMove = eatenBy.lastMove ? new Vector(eatenBy.lastMove.x, eatenBy.lastMove.y) : new Vector(0, 0);
+			lastDistance = diff.length,
+			speedFactor = 0.03;
+		diff.length = 2 * this.lastRenderTimespan / 60 + diff.length * speedFactor + rmSlimeMove.length;
+		this.moveObject(rmSlime, diff.x, diff.y);
+		if (this.getToBorderVector(rmSlime, eatenBy).length >= lastDistance)	{
+			this.moveObject(rmSlime, -diff.x, -diff.y);
+		}
+		rmSlime.diameter.animate(Math.min(
+			rmSlime.diameterOriginal/2 + rmSlime.diameterOriginal*1/2 * lastDistance / rmSlime.eatenByDistance,
+			rmSlime.diameterOriginal
+		), 0);
+		//REMOVE NOT SEEN ANYMORE
+		let distanceToCenter = this.getDistanceObj(rmSlime, eatenBy, true);
+		if (distanceToCenter <= this.getHiddenChildParentRadius(rmSlime, eatenBy) || distanceToCenter < 5 || eatenBy.removed)	{
+			rmSlime.removed = true;
+			this.removedSlimes.splice(this.removedSlimes.indexOf(rmSlime), 1);
+		}
 	}.bind(this));
 
 
@@ -931,36 +1137,35 @@ Game.prototype.render = function()	{
 
 	//RENDER REMOVED SLIMES
 
-	this.removedSlimes.forEach(function(removedSlime)  {
-	if (removedSlime.type == "Cactus")  {
-	  this.canvas.drawCactus(removedSlime);
-	}
-	else if (removedSlime.type == "SlimePart") {
-	  this.canvas.drawSlime(removedSlime);
-	}
-	else  {
-	  this.canvas.drawFood(removedSlime);
-	}
+	this.removedSlimes.forEach(function(rmSlime)  {
+		if (rmSlime.type == "Cactus")  {
+			this.canvas.drawCactus(rmSlime);
+		}
+		else if (rmSlime.type == "SlimePart") {
+			this.canvas.drawSlime(rmSlime);
+		}
+		else if (rmSlime.type == "Food"){
+			this.canvas.drawFood(rmSlime, false);
+		}
+		else if (rmSlime.type == "Ejected food") {
+			this.canvas.drawFood(rmSlime);
+		}
 	}.bind(this));
 
 
 	//RENDER FOODS
-
-	[...this.foods, ...this.ejectedFoods, ...this.ejectedMovingFoods].filter(function(food)  {
-	let canvasCoords = this.convertCoords(food.x, food.y);
-	let foodRadius = food.diameter / 2 + this.borderWidth;
-
-	return canvasCoords[0] > 0 - foodRadius && canvasCoords[0] < this.canvas.width + foodRadius
-	    && canvasCoords[1] > 0 - foodRadius && canvasCoords[1] < this.canvas.height + foodRadius;
-	}.bind(this)).forEach(function(food) {
-	this.canvas.drawFood(food);
+	this.foods.filter(this.isOnScreen.bind(this)).forEach(function(food) {
+		this.canvas.drawFood(food, false);
+	}.bind(this));
+	this.ejectedFoods.concat(this.ejectedMovingFoods).filter(this.isOnScreen.bind(this)).forEach(function(food) {
+		this.canvas.drawFood(food);
 	}.bind(this));
 
 
 	//RENDER PLAYER, OTHER SLIMES AND CACTUSES
 	{
-	let slimes = [...this.player.parts, ...this.cactuses];
-	slimes.sort((a, b) => a.diameter - b.diameter);
+	let slimes = this.player.parts.concat(this.cactuses.filter(this.isOnScreen.bind(this)));
+	slimes.sort((a, b) => a.diameter.value - b.diameter.value);
 	slimes.forEach(function(slime) {
 	  if (slime.type == "SlimePart")  {
 	    this.canvas.drawSlime(slime);
@@ -970,23 +1175,16 @@ Game.prototype.render = function()	{
 	}.bind(this));
 	}
 
-	//UPDATE VIEW SCALE
-	{
-	let minSize = Math.min(this.canvas.width, this.canvas.height) / this.canvas.ratio;
-	let newViewScale = Math.min(  3 / Math.pow(this.player.diameterSum, 10/40),			minSize / this.player.diameterSum / 2  )
-	 * Math.pow(0.9, Math.log(this.player.parts.length)) * this.canvas.ratio;
-	if (newViewScale != this.viewScale)  {
-	  this.viewScale = newViewScale;
-	  this.viewScaleAnimated.animate(this.viewScale, 700, easeOut);
-	}
-	}
-
 	//GUI INTERACT
 
 	if (gui != undefined)  {
-	gui.massCounter.innerHTML = this.player.score;
+		let mass = String(Math.floor(this.player.mass)),
+			thousands = [];
+		for (let pos = 0; pos <= mass.length + 2; pos += 3) {
+			thousands.unshift(mass.substr(-pos-3, Math.min(3, mass.length - pos)));
+		}
+		gui.massCounter.innerHTML = thousands.join(" ");
 	}
 
-	this.latestRenderTime = startTime;
 	setTimeout(this.render.bind(this), 1000 / game.frameRate - (Date.now() - startTime));
 }
