@@ -178,15 +178,13 @@ document.addEventListener("click", setFocus);
 
 
 gui.el.addEventListener("click", function(event)  {
+  
   if (button = Object.keys(gui.buttons).find(button => gui.buttons[button].el == event.target))  {
     gui.buttons[button].click();
   }
-  else if ((checkbox = Object.keys(gui.checkboxes).find(
-    checkbox => event.path.find(
-      el => el == gui.checkboxes[checkbox].label
-    ) + 1
-  )) && event.target.nodeName == "INPUT")  {
-    gui.checkboxes[checkbox].click();
+  else if (event.target === gui.checkboxes['darkmode'].box
+  || event.target === gui.checkboxes['darkmode'].label)  {
+    gui.checkboxes['darkmode'].click();
   }
 });
 
