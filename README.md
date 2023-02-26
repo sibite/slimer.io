@@ -11,7 +11,7 @@ Single-player clone of popular game Agar.io with physics implemented from scratc
 - Split blobs
 - Eject food
 - Cactuses
-- Customizable configuration
+- Animations
 
 ## Controls
 
